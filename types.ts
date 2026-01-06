@@ -30,14 +30,16 @@ export interface TeacherContext {
   language: Language;
 }
 
-export type QuestionType = 'compulsory' | 'either-or' | 'choice';
+export type QuestionType = 'compulsory' | 'any-x-among-y' | 'either-or';
+export type OneMarkVariety = 'MCQ' | 'Fill in the blanks' | 'True or False' | 'Statement/Reason' | 'Default';
 
 export interface SectionBlueprint {
   id: string;
   marksPerQuestion: number;
   count: number;
   type: QuestionType;
-  choiceCount?: number;
+  choiceCount?: number; 
+  oneMarkVariety?: OneMarkVariety;
 }
 
 export interface QuestionSettings {
@@ -65,7 +67,10 @@ export interface Question {
   text: string;
   marks: number;
   options?: string[];
-  pairedWith?: string;
+  variety?: OneMarkVariety;
+  // Fields for Either/Or internal choice
+  alternativeText?: string;
+  alternativeOptions?: string[];
 }
 
 export interface Section {
@@ -76,6 +81,7 @@ export interface Section {
   questions: Question[];
   marksPerQuestion: number;
   totalSectionMarks: number;
+  choiceText?: string; 
 }
 
 export interface QuestionPaper {
@@ -90,7 +96,7 @@ export interface SyllabusPlan {
   title: string;
   timeframe: string;
   sessions: {
-    period: string; // e.g., "Day 1", "Week 1"
+    period: string;
     topic: string;
     objective: string;
     activity: string;
@@ -119,5 +125,5 @@ export interface ReadingAssessmentResult {
 
 export const GRADE_TEXTS: Record<string, Partial<Record<Language, string>>> = {
   'Grade 1': { [Language.ENGLISH]: "The sun is hot.", [Language.HINDI]: "सूरज गर्म है।" },
-  'Grade 10': { [Language.ENGLISH]: "Quantum physics is interesting.", [Language.HINDI]: "क्वांटम भौतिकी दिलचस्प है।" },
+  'Grade 10': { [Language.ENGLISH]: "Quantum physics is interesting.", [Language.HINDI]: "குவாண்டம் பௌதிகம் மிகவும் சுவாரஸ்யமானது." },
 };
