@@ -1,114 +1,126 @@
-# StudyPilot
+# StudyPilot – Just-in-Time AI Classroom Assistant
 
-# TechSprint Hackathon Problem Statement  
-## Just-in-Time Coaching for Teachers
+## Overview
 
----
-
-## Background: A Teacher’s Lived Reality
-
-Sunita, a Primary Teacher at a rural school in Jharkhand, stands before a Class 4 classroom where students are at four different learning levels. Today, she is attempting a new *group-based subtraction* activity she learned in a state workshop three months ago.
-
-Midway through the lesson, the class descends into chaos. Advanced students finish early and become disruptive, while the struggling group is stuck on a conceptual block involving **zero in the tens place**.
-
-Sunita feels a familiar surge of *implementation anxiety*. She urgently needs:
-- A classroom management strategy to regain control
-- A pedagogical “hook” to explain the math concept effectively
-
-Her Cluster Resource Person (CRP) had visited two weeks ago but stayed only 20 minutes due to workload constraints. The feedback left in the logbook was generic:
-
-> “Ensure all students are engaged and use more Teaching Learning Materials from surrounding objects.”
-
-No specific, actionable ideas were discussed.
-
-The next visit is at least three weeks away. With no nearby peer support and mounting pressure from upcoming terminal assessments, Sunita abandons the activity. She reverts to writing the borrowing algorithm on the board and asks students to copy it.
-
-The spark of innovation fades—replaced by rote instruction and growing professional burnout.
-
-This is not an isolated incident.
-
-Teachers across the country face similar challenges due to the **absence of timely, context-aware coaching support**.
+**StudyPilot** is an AI-powered classroom assistant designed to support teachers in multi-grade, low-resource public schools in India. The platform provides **real-time, personalized pedagogical and classroom management support** at the exact moment teachers face challenges during instruction. Instead of relying on periodic, generic training or infrequent mentor visits, Sahayak enables **just-in-time coaching**, helping teachers confidently implement innovative teaching practices inside real classrooms.
 
 ---
 
-## The Existing Gap
+## Problem Statement
 
-Large-scale teacher training programs focus heavily on theory but fail to address the **implementation gap** of real classrooms.
+Teachers in government schools often manage:
+- Multi-grade classrooms with diverse learning levels  
+- High student-to-teacher ratios  
+- Limited teaching-learning materials  
+- Infrequent and delayed academic support from mentors (CRP/BRP/ARP)
 
-Teachers are expected to:
-- Implement Foundational Literacy and Numeracy (FLN)
-- Manage high student-teacher ratios
-- Handle multi-grade classrooms
-- Respond to diverse learning needs and behaviors
-
-However:
-- In-service trainings last only 5–15 days
-- Classroom realities are highly contextual and recurring
-- Teachers often revert to traditional methods for control
+When teachers encounter live classroom challenges—such as student disengagement, conceptual blocks, or activity breakdowns—there is **no immediate support mechanism**. As a result, teachers often abandon innovative practices and revert to rote instruction, impacting student learning outcomes and increasing teacher burnout.
 
 ---
 
-## Limitations of the Current Support Architecture
+## Solution
 
-The existing academic support system (CRPs, ARPs, BRPs) is constrained by its **periodic nature**.
+Sahayak acts as a **personal AI teaching assistant** that teachers can access anytime using voice, text, or images. It delivers **context-aware, localized, and actionable guidance** aligned to the teacher’s immediate classroom situation.
 
-### Key Deficiencies
-
-**1. Lag Time Problem**  
-Teachers facing immediate challenges must wait weeks for support. By the time help arrives, the moment of need has passed.
-
-**2. Generic Feedback**  
-Due to workload and limited observation time (10–30 minutes), feedback is often non-specific and non-actionable.
-
-**3. Lack of Just-in-Time Support**  
-Delayed feedback is retrospective, not proactive. Teachers need support *during* the act of teaching.
+Key capabilities include:
+- Instant pedagogical suggestions for live classroom challenges  
+- Local-language explanations using simple analogies  
+- Differentiated worksheets generated from textbook images  
+- Blackboard-friendly visual aids (diagrams, charts, step-by-step drawings)  
+- Voice-based interactions for low-literacy and low-connectivity contexts  
 
 ---
 
-## Need for Personalized, Need-Based Coaching
+## Key Features
 
-Effective teacher coaching works best when it is:
-- Context-specific
-- Teacher-driven
-- Responsive to real classroom challenges
-
-Every classroom is unique. A one-size-fits-all solution does not work—especially in rural or multi-grade settings.
-
-Teachers should be treated as skilled professionals. Coaching must shift from pointing out “gaps” to **collaboratively solving the teacher’s most pressing problems**.
+- **Just-in-Time Coaching:** Immediate, situation-specific guidance during class  
+- **Multilingual Support:** Responses in local Indian languages  
+- **Multimodal Input:** Text, voice, and textbook image uploads  
+- **Differentiated Learning:** Grade-wise worksheets from a single source  
+- **Offline-First Design:** Works in low or intermittent network conditions  
+- **Teacher-Centric UX:** Minimal typing, voice-first interactions  
 
 ---
 
-## The Need for a Technology-Based Solution
+## Google AI Technologies Used
 
-To make high-quality coaching accessible at scale, a technology solution is required that offers **real-time, personalized support** without physical presence.
-
-### The Solution Must Provide:
-
-- **Immediate, Personalized Advice**  
-  Teachers can ask situation-specific questions and receive actionable guidance instantly.
-
-- **Continuous, Flexible Feedback**  
-  Instead of monthly visits, teachers can receive support within hours.
-
-- **Offline / Low-Bandwidth First Design**  
-  Voice-based, multilingual, and mobile-friendly for remote areas.
-
-- **Relevant, Micro-Learning Content**  
-  Small, actionable learning units matched to the teacher’s grade level and current challenge.
-
-This effectively creates a **personal Teaching Assistant** for every teacher.
+- **Google Gemini** – Multimodal content generation and contextual reasoning    
+- **Vertex AI Vision** – Understanding textbook images and visual inputs  
+- **Firebase** – Authentication, database, hosting, and offline-first support  
+- **Firebase Studio** – Rapid prototyping and deployment for hackathon use  
 
 ---
 
-## Summary Table
+## Architecture Overview
 
-| Component | Details |
-|--------|--------|
-| **Problem Statement** | Teachers in the public education system lack a just-in-time coaching mechanism to address immediate classroom challenges, due to reliance on infrequent, physical mentor visits that provide generic feedback. |
-| **Use Case** | A teacher facing a classroom management or conceptual challenge needs immediate, personalized guidance rather than waiting weeks for a mentor visit. |
-| **Target Audience** | Government School Teachers (Primary & Secondary), CRPs, ARPs, BRPs |
-| **Suggestive Approaches** | AI-powered classroom assistants, on-demand micro-learning modules, asynchronous digital coaching loops |
-| **Key Success Metrics** | Reduced query-to-resolution time, frequency of coaching interactions, successful implementation of personalized strategies |
+Teacher (Mobile/Web Interface)
+↓
+Firebase (Auth, Firestore, Hosting, Offline Cache)
+↓
+Google Gemini (Text + Image Reasoning)
+↓
+↓
+Personalized, Local-Language Classroom Support
+
+
+---
+
+## Target Users
+
+- Government Primary & Secondary School Teachers  
+- Cluster Resource Persons (CRPs)  
+- Block & Academic Resource Persons (BRPs/ARPs)  
+- DIET & SCERT faculty (secondary system-level insights)
+
+---
+
+## Impact
+
+- Reduces **query-to-resolution time** from weeks to minutes  
+- Increases sustained use of **innovative teaching practices**  
+- Improves teacher confidence and classroom engagement  
+- Creates data-driven insights for system-level academic support  
+
+---
+
+## Alignment with NEP 2020
+
+- Supports **Foundational Literacy and Numeracy (FLN)**  
+- Enables **continuous professional development**  
+- Promotes **teacher autonomy and contextualized pedagogy**  
+- Encourages technology-enabled, need-based training  
+
+---
+
+## Getting Started (Prototype)
+
+1. Clone the repository  
+2. Set up Firebase project and enable Authentication & Firestore  
+3. Configure Google Cloud project with Gemini and Vertex AI access  
+4. Deploy using Firebase Hosting / Firebase Studio  
+5. Access the app via web or mobile browser  
+
+---
+
+## Future Enhancements
+
+- AI-powered weekly lesson planners  
+- Real-time analytics dashboards for DIET/SCERT  
+- Student learning progress insights  
+- Parent communication support  
+- Expanded offline capabilities  
+
+---
+
+## License
+
+This project is developed as part of a hackathon and is intended for educational and demonstration purposes.
+
+---
+
+## Team
+
+Built with a strong focus on **teacher empathy**, **system awareness**, and **scalable impact** in public education.
 
 ---
 
