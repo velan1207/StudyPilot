@@ -1,5 +1,5 @@
 {
-  "name": "Sahayak - AI Teaching Assistant",
+  "name": "StudyPilot",
   "description": "An AI-powered teaching assistant designed to empower teachers in multi-grade, low-resource classrooms with content generation, reading assessment, and lesson planning.",
   "requestFramePermissions": [
     "camera",

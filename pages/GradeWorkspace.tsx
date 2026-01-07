@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-/* Fixed: Using namespace import for react-router-dom to resolve module errors */
-import * as RRD from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -27,7 +26,14 @@ import {
   MessageSquare,
   PlusCircle,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Monitor,
+  Pencil,
+  Archive,
+  ExternalLink,
+  Target,
+  Circle,
+  Square as SquareIcon
 } from 'lucide-react';
 import { 
   TeacherContext, 
@@ -37,17 +43,19 @@ import {
   Question,
   SlideDeck,
   SyllabusPlan,
-  SectionBlueprint
+  SectionBlueprint,
+  OneMarkVariety
 } from '../types';
 import { 
   generateQuestionPaper, 
   generateSlideDeck, 
   askChatQuestion,
-  generateSyllabusPlan
+  generateSyllabusPlan,
+  generateHomework
 } from '../services/geminiService';
 import { UI_STRINGS } from '../translations';
 import { auth, db } from '../firebase';
-import { doc, onSnapshot, setDoc, arrayUnion, collection, query, deleteDoc, getDocs, orderBy, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, arrayUnion, collection, query, deleteDoc, getDocs, orderBy, serverTimestamp, where } from 'firebase/firestore';
 
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, actionLabel }: any) => {
   if (!isOpen) return null;
@@ -64,6 +72,98 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, actionLabel 
         <div className="p-6 bg-slate-50 flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 font-black text-slate-400 uppercase text-[10px] tracking-widest">Cancel</button>
           <button onClick={onConfirm} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-rose-500/20">{actionLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const VaultModal = ({ isOpen, onClose, gradeId, onLoad }: { isOpen: boolean, onClose: () => void, gradeId: string, onLoad: (item: any) => void }) => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Simplified query: removed 'orderBy' to avoid requiring a composite index immediately.
+    // Firestore provides automatic ordering by ID which is sufficient for basic lists.
+    const q = query(
+      collection(db, "users", user.uid, "vault"),
+      where("grade", "==", gradeId)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      setItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      console.error("Vault snapshot error:", error);
+      setLoading(false);
+    });
+    return unsub;
+  }, [isOpen, gradeId]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[150] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 max-h-[85vh]">
+        <div className="p-8 border-b bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center"><Archive size={28} /></div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Grade Vault</h3>
+              <p className="text-sm font-bold text-slate-400">Saved content for {gradeId}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-600 transition-colors"><X size={28} /></button>
+        </div>
+        <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <Loader2 className="animate-spin text-indigo-500" size={32} />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Opening Vault...</p>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center space-y-6">
+              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto">
+                <Archive size={40} />
+              </div>
+              <div>
+                <p className="text-xl font-black text-slate-400 uppercase tracking-tight">Your Vault is Empty</p>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-[0.2em] mt-2 max-w-[280px] mx-auto leading-relaxed">
+                  Start generating syllabus plans, question papers, or slides and save them to access them here later.
+                </p>
+              </div>
+              <button onClick={onClose} className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Got it</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {items.map((item) => (
+                <div key={item.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all group">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+                      {item.type === 'question_paper' ? <FileIcon size={20} /> : item.type === 'slide_deck' ? <Monitor size={20} /> : <BookOpen size={20} />}
+                    </div>
+                    <span className="text-[8px] font-black bg-slate-50 text-slate-400 px-2 py-1 rounded-md uppercase tracking-widest">
+                      {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString() : 'Recent'}
+                    </span>
+                  </div>
+                  <h4 className="font-black text-slate-800 text-sm mb-1 uppercase tracking-tight line-clamp-1">{item.title}</h4>
+                  <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-6">
+                    {item.type.replace('_', ' ')}
+                  </p>
+                  <button 
+                    onClick={() => onLoad(item)}
+                    className="w-full py-3 bg-slate-50 hover:bg-indigo-500 hover:text-white text-slate-500 rounded-xl font-black uppercase text-[9px] tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                  >
+                    Load Content <ExternalLink size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -141,15 +241,20 @@ const MasterPlanModal = ({ isOpen, onClose, onConfirm }: any) => {
 
 const BlueprintModal = ({ isOpen, onClose, gradeId, settings, setSettings, onConfirm }: any) => {
   if (!isOpen) return null;
-  const calculateCurrentTotal = () => settings.sections.reduce((acc: number, s: any) => acc + (s.marksPerQuestion * s.count), 0);
+  const calculateCurrentTotal = () => settings.sections.reduce((acc: number, s: any) => {
+    const questionsToAnswer = s.type === 'any-x-among-y' ? (s.choiceCount || s.count) : s.count;
+    return acc + (s.marksPerQuestion * questionsToAnswer);
+  }, 0);
+  
   const currentTotal = calculateCurrentTotal();
   const isBalanced = currentTotal === settings.totalMarks;
   const updateSection = (id: string, updates: Partial<SectionBlueprint>) => setSettings({ ...settings, sections: settings.sections.map((s: any) => s.id === id ? { ...s, ...updates } : s) });
   const addSection = () => setSettings({ ...settings, sections: [...settings.sections, { id: Date.now().toString(), marksPerQuestion: 1, count: 5, type: 'compulsory' }] });
   const removeSection = (id: string) => setSettings({ ...settings, sections: settings.sections.filter((s: any) => s.id !== id) });
+
   return (
     <div className="fixed inset-0 z-[150] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh]">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-6xl overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh]">
         <div className="p-8 border-b bg-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-5">
             <div className="w-14 h-14 bg-[#4FB5C0]/10 text-[#4FB5C0] rounded-2xl flex items-center justify-center"><Settings size={28} /></div>
@@ -164,15 +269,15 @@ const BlueprintModal = ({ isOpen, onClose, gradeId, settings, setSettings, onCon
           <div className="grid grid-cols-3 gap-8">
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Total Exam Marks</label>
-              <input type="number" value={settings.totalMarks} onChange={e => setSettings({...settings, totalMarks: parseInt(e.target.value) || 0})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-2xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20" />
+              <input type="number" value={settings.totalMarks} onChange={e => setSettings({...settings, totalMarks: parseInt(e.target.value) || 0})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-2xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20 shadow-inner" />
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Duration</label>
-              <input value={settings.duration} onChange={e => setSettings({...settings, duration: e.target.value})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20" />
+              <input value={settings.duration} onChange={e => setSettings({...settings, duration: e.target.value})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20 shadow-inner" />
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Difficulty</label>
-              <select value={settings.difficulty} onChange={e => setSettings({...settings, difficulty: e.target.value as any})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20 appearance-none">
+              <select value={settings.difficulty} onChange={e => setSettings({...settings, difficulty: e.target.value as any})} className="w-full bg-slate-50/50 p-6 rounded-[1.5rem] text-xl font-black text-slate-800 border-none outline-none focus:ring-2 ring-[#4FB5C0]/20 appearance-none shadow-inner">
                 <option>Easy</option><option>Medium</option><option>Hard</option>
               </select>
             </div>
@@ -180,21 +285,60 @@ const BlueprintModal = ({ isOpen, onClose, gradeId, settings, setSettings, onCon
           <div className="space-y-6">
             {settings.sections.map((section: any) => (
               <div key={section.id} className="relative group">
-                <div className={`bg-slate-50/40 p-8 rounded-[2rem] border border-slate-100 grid grid-cols-3 items-end gap-6`}>
-                  <div className="space-y-3">
+                <div className={`bg-slate-50/40 p-8 rounded-[2rem] border border-slate-100 grid grid-cols-12 items-end gap-6`}>
+                  <div className="col-span-2 space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Marks Per Q</label>
-                    <input type="number" value={section.marksPerQuestion} onChange={e => updateSection(section.id, { marksPerQuestion: parseInt(e.target.value) || 0 })} className="w-full bg-white p-5 rounded-2xl text-xl font-black text-[#4FB5C0] border-none outline-none shadow-sm" />
+                    <input type="number" value={section.marksPerQuestion} onChange={e => updateSection(section.id, { marksPerQuestion: parseInt(e.target.value) || 0, oneMarkVariety: parseInt(e.target.value) === 1 ? 'MCQ' : undefined })} className="w-full bg-white p-5 rounded-2xl text-xl font-black text-[#4FB5C0] border-none outline-none shadow-sm text-center" />
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Q Count</label>
-                    <input type="number" value={section.count} onChange={e => updateSection(section.id, { count: parseInt(e.target.value) || 0 })} className="w-full bg-white p-5 rounded-2xl text-xl font-black text-slate-800 border-none outline-none shadow-sm" />
+                  <div className="col-span-2 space-y-3">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                      {section.type === 'either-or' ? 'Q Pairs' : 'Total Qs'}
+                    </label>
+                    <input type="number" value={section.count} onChange={e => updateSection(section.id, { count: parseInt(e.target.value) || 0 })} className="w-full bg-white p-5 rounded-2xl text-xl font-black text-slate-800 border-none outline-none shadow-sm text-center" />
                   </div>
-                  <div className="space-y-3">
+                  <div className={`${(section.type === 'any-x-among-y' || section.marksPerQuestion === 1) ? 'col-span-4' : 'col-span-8'} space-y-3`}>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Section Type</label>
-                    <select value={section.type} onChange={e => updateSection(section.id, { type: e.target.value as any })} className="w-full bg-white p-5 rounded-2xl text-sm font-black text-slate-800 border-none outline-none shadow-sm appearance-none">
-                      <option value="compulsory">Compulsory</option><option value="any-x-among-y">Any X of Y</option><option value="either-or">Either/Or</option>
+                    <select 
+                      value={section.type} 
+                      onChange={(e) => updateSection(section.id, { 
+                        type: e.target.value as any, 
+                        choiceCount: e.target.value === 'any-x-among-y' ? (section.choiceCount || Math.ceil(section.count * 0.7)) : undefined 
+                      })} 
+                      className="w-full bg-white p-5 rounded-2xl text-sm font-black text-slate-800 border-none outline-none shadow-sm appearance-none"
+                    >
+                      <option value="compulsory">Compulsory</option>
+                      <option value="any-x-among-y">Internal Choice (Any X of Y)</option>
+                      <option value="either-or">Either/Or (1A or 1B)</option>
                     </select>
                   </div>
+                  {section.marksPerQuestion === 1 && (
+                    <div className="col-span-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest ml-1">Question Variety (1 Mark Only)</label>
+                      <select 
+                        value={section.oneMarkVariety || 'MCQ'} 
+                        onChange={e => updateSection(section.id, { oneMarkVariety: e.target.value as OneMarkVariety })} 
+                        className="w-full bg-amber-50 p-5 rounded-2xl text-sm font-black text-amber-600 border-none outline-none shadow-sm appearance-none"
+                      >
+                        <option value="MCQ">Multiple Choice (MCQ)</option>
+                        <option value="Fill in the blanks">Fill in the blanks</option>
+                        <option value="True or False">True or False</option>
+                        <option value="Statement/Reason">Statement & Reason</option>
+                        <option value="Default">Short Answer (One Word)</option>
+                      </select>
+                    </div>
+                  )}
+                  {section.type === 'any-x-among-y' && (
+                    <div className="col-span-4 space-y-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                      <label className="text-[9px] font-black text-[#4FB5C0] uppercase tracking-widest ml-1">Choice Limit (X)</label>
+                      <input 
+                        type="number" 
+                        max={section.count}
+                        value={section.choiceCount} 
+                        onChange={e => updateSection(section.id, { choiceCount: Math.min(section.count, parseInt(e.target.value) || 1) })} 
+                        className="w-full bg-[#E6F4F5] p-5 rounded-2xl text-xl font-black text-[#4FB5C0] border-none outline-none shadow-inner text-center" 
+                      />
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => removeSection(section.id)} className="absolute -right-3 -top-3 w-10 h-10 bg-white shadow-xl rounded-xl flex items-center justify-center text-rose-500 border border-rose-50 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 z-10"><Trash2 size={18} /></button>
               </div>
@@ -205,8 +349,14 @@ const BlueprintModal = ({ isOpen, onClose, gradeId, settings, setSettings, onCon
           </div>
         </div>
         <div className="p-10 border-t bg-white flex items-center justify-between shrink-0">
-          <div><span className={`text-4xl font-black ${isBalanced ? 'text-[#4FB5C0]' : 'text-rose-500'}`}>{currentTotal} / {settings.totalMarks} MARKS</span></div>
-          <button onClick={onConfirm} disabled={!isBalanced} className={`px-12 py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl transition-all active:scale-95 ${isBalanced ? 'bg-[#4FB5C0] text-white shadow-[#4FB5C0]/20 hover:scale-[1.02]' : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50'}`}>Generate Draft</button>
+          <div className="flex flex-col">
+            <span className={`text-4xl font-black ${isBalanced ? 'text-[#4FB5C0]' : 'text-rose-500'}`}>{currentTotal} / {settings.totalMarks} MARKS</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expected Score Weight</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <button onClick={onClose} className="px-8 py-5 font-black text-slate-400 uppercase text-xs tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
+            <button onClick={onConfirm} disabled={!isBalanced} className={`px-12 py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl transition-all active:scale-95 ${isBalanced ? 'bg-[#4FB5C0] text-white shadow-[#4FB5C0]/20 hover:scale-[1.02]' : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50'}`}>Generate Draft</button>
+          </div>
         </div>
       </div>
     </div>
@@ -220,9 +370,9 @@ const AutoResizeTextarea = ({ className, value, onChange, placeholder }: any) =>
 };
 
 const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = ({ context, setContext }) => {
-  const { gradeId } = RRD.useParams();
-  const navigate = RRD.useNavigate();
-  const location = RRD.useLocation();
+  const { gradeId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = UI_STRINGS[context.language];
   
@@ -234,22 +384,23 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
   const [showExamConfig, setShowExamConfig] = useState(false);
   const [showPlanConfig, setShowPlanConfig] = useState(false);
   const [showSlideConfig, setShowSlideConfig] = useState(false);
+  const [showVault, setShowVault] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState<{ type: 'single' | 'all', id?: string } | null>(null);
   const [fileError, setFileError] = useState(false);
-  const [examSettings, setExamSettings] = useState<QuestionSettings>({ totalMarks: 50, duration: '2 Hours', difficulty: 'Medium', sections: [{ id: '1', marksPerQuestion: 1, count: 10, type: 'compulsory' }] });
+  const [examSettings, setExamSettings] = useState<QuestionSettings>({ totalMarks: 50, duration: '2 Hours', difficulty: 'Medium', sections: [{ id: '1', marksPerQuestion: 1, count: 10, type: 'compulsory', oneMarkVariety: 'MCQ' }] });
   const [chatInput, setChatInput] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState<string>(Date.now().toString());
   const [sessions, setSessions] = useState<any[]>([]);
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string, time: string }[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  
+  const [pendingSessionTopic, setPendingSessionTopic] = useState<string | null>(null);
 
-  // Load state from vault if passed via navigation
   useEffect(() => {
     if (location.state?.loadedResult && location.state?.loadedAction) {
       setResult(location.state.loadedResult);
       setActiveAction(location.state.loadedAction);
-      // Optional: Clear navigation state after loading to prevent reload-injection
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -282,8 +433,8 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
     }
   };
 
-  const handleAction = async (action: 'plan' | 'paper' | 'explain', extra?: any) => {
-    if (!selectedFile) {
+  const handleAction = async (action: 'plan' | 'paper' | 'explain' | 'homework', extra?: any) => {
+    if (!selectedFile && !result) {
         setFileError(true);
         setTimeout(() => setFileError(false), 3000);
         return;
@@ -296,12 +447,48 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
     setLoading(true); setActiveAction(action); setResult(null); setShowExamConfig(false); setShowPlanConfig(false); setShowSlideConfig(false);
     try {
       let data;
+      // CRITICAL: Determine the actual topic to use (session-specific or global)
+      const contextTopic = pendingSessionTopic || topic || "General Syllabus";
+      
       if (action === 'plan') data = await generateSyllabusPlan(extra.duration, extra.unit, context.grade, context.language, selectedFile!);
-      else if (action === 'paper') data = await generateQuestionPaper(selectedFile!, context.grade, context.language, examSettings);
-      else if (action === 'explain') data = await generateSlideDeck(topic || "Summary", selectedFile || null, context.language, extra.slideCount);
+      else if (action === 'paper') data = await generateQuestionPaper(selectedFile!, context.grade, context.language, examSettings, contextTopic);
+      else if (action === 'explain') data = await generateSlideDeck(contextTopic, selectedFile || null, context.language, extra.slideCount);
+      else if (action === 'homework') {
+        data = await generateHomework(contextTopic, context.grade, context.language, selectedFile);
+      }
       setResult(data);
     } catch (err: any) { console.error(err); alert(`Generation failed: ${err.message}`); }
-    finally { setLoading(false); }
+    finally { 
+      setLoading(false); 
+      // Reset pending topic after any action completes
+      setPendingSessionTopic(null); 
+    }
+  };
+
+  const handleSessionAction = (action: 'explain' | 'paper' | 'homework', sessionTopic: string) => {
+    // Explicitly set the topic before showing config or triggering generation
+    setPendingSessionTopic(sessionTopic);
+    
+    if (action === 'paper') {
+      setShowExamConfig(true);
+    } else if (action === 'explain') {
+      setShowSlideConfig(true);
+    } else if (action === 'homework') {
+      // Homework has no modal config, trigger directly
+      handleAction('homework');
+    }
+  };
+
+  const handleLoadFromVault = (item: any) => {
+    let action = '';
+    if (item.type === 'question_paper') action = 'paper';
+    else if (item.type === 'syllabus_plan') action = 'plan';
+    else if (item.type === 'slide_deck') action = 'explain';
+    else if (item.type === 'homework') action = 'homework';
+
+    setResult(item.content);
+    setActiveAction(action);
+    setShowVault(false);
   };
 
   const handleChatSend = async () => {
@@ -357,7 +544,7 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
     const vaultRef = doc(collection(db, "users", user.uid, "vault"));
     await setDoc(vaultRef, {
       title: result.title || "Untitled Generated Content",
-      type: activeAction === 'paper' ? 'question_paper' : activeAction === 'plan' ? 'syllabus_plan' : 'slide_deck',
+      type: activeAction === 'paper' ? 'question_paper' : activeAction === 'plan' ? 'syllabus_plan' : activeAction === 'explain' ? 'slide_deck' : 'homework',
       content: result,
       grade: gradeId,
       createdAt: serverTimestamp()
@@ -369,23 +556,29 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
   return (
     <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-10 md:pb-20 px-4 md:px-0">
       <ConfirmModal isOpen={!!showConfirmDelete} onClose={() => setShowConfirmDelete(null)} onConfirm={() => showConfirmDelete?.type === 'single' ? deleteSession(showConfirmDelete.id!) : deleteAllSessions()} title={showConfirmDelete?.type === 'all' ? "Clear All History?" : "Delete Chat?"} message="This action is permanent and cannot be undone." actionLabel="Delete" />
-      <BlueprintModal isOpen={showExamConfig} onClose={() => setShowExamConfig(false)} gradeId={gradeId} settings={examSettings} setSettings={setExamSettings} onConfirm={() => handleAction('paper', { confirmed: true })} />
+      <BlueprintModal isOpen={showExamConfig} onClose={() => { setShowExamConfig(false); setPendingSessionTopic(null); }} gradeId={gradeId} settings={examSettings} setSettings={setExamSettings} onConfirm={() => handleAction('paper', { confirmed: true })} />
       <MasterPlanModal isOpen={showPlanConfig} onClose={() => setShowPlanConfig(false)} onConfirm={(duration: number, unit: any) => handleAction('plan', { duration, unit })} />
-      <SlideConfigModal isOpen={showSlideConfig} onClose={() => setShowSlideConfig(false)} onConfirm={(slideCount: number) => handleAction('explain', { slideCount })} />
+      <SlideConfigModal isOpen={showSlideConfig} onClose={() => { setShowSlideConfig(false); setPendingSessionTopic(null); }} onConfirm={(slideCount: number) => handleAction('explain', { slideCount })} />
+      <VaultModal isOpen={showVault} onClose={() => setShowVault(false)} gradeId={gradeId!} onLoad={handleLoadFromVault} />
       
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-6">
           <button onClick={() => result ? setResult(null) : navigate('/')} className="w-11 h-11 flex items-center justify-center bg-white border rounded-2xl text-slate-400 hover:text-slate-800 transition-all shadow-sm"><ArrowLeft size={18} /></button>
           <div><h2 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-none">{gradeId} {t.workspace}</h2></div>
         </div>
-        {result && (
-          <div className="flex items-center gap-3">
-            {saveSuccess && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-in fade-in">{saveSuccess}</span>}
-            <button onClick={saveToVault} className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-100 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all">
-              <Save size={14} className="text-[#4FB5C0]" /> Save to Vault
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          <button onClick={() => setShowVault(true)} className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-100 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all text-indigo-500">
+            <Archive size={14} /> My Vault
+          </button>
+          {result && (
+            <div className="flex items-center gap-3">
+              {saveSuccess && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-in fade-in">{saveSuccess}</span>}
+              <button onClick={saveToVault} className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-100 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all">
+                <Save size={14} className="text-[#4FB5C0]" /> Save to Vault
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {!result && !loading ? (
@@ -432,7 +625,7 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
       ) : loading ? (
         <LoadingState action={activeAction} />
       ) : (
-        <RenderResult result={result} action={activeAction} setContext={setResult} />
+        <RenderResult result={result} action={activeAction} setContext={setResult} onSessionAction={handleSessionAction} />
       )}
     </div>
   );
@@ -452,25 +645,129 @@ const LoadingState = ({ action }: any) => (
   </div>
 );
 
-const RenderResult = ({ result, action, setContext }: any) => {
+const RenderResult = ({ result, action, setContext, onSessionAction }: any) => {
   if (action === 'paper') return <EditablePaper paper={result} onUpdate={setContext} />;
-  if (action === 'plan') return <PlanView plan={result} />;
+  if (action === 'plan') return <PlanView plan={result} onSessionAction={onSessionAction} />;
   if (action === 'explain') return <SlidesView deck={result} />;
+  if (action === 'homework') return <HomeworkView homework={result} />;
   return null;
 };
 
-const PlanView = ({ plan }: any) => (
-  <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 space-y-10 max-w-5xl mx-auto animate-in fade-in zoom-in-95 duration-500">
-    <div className="flex justify-between items-start border-b pb-8">
-      <div><h3 className="text-3xl font-black text-slate-800 uppercase">{plan?.title}</h3><p className="text-[#4FB5C0] font-black uppercase text-xs mt-1">{plan?.timeframe}</p></div>
-      <button onClick={() => window.print()} className="p-4 bg-slate-50 text-slate-400 rounded-2xl no-print"><Printer size={20} /></button>
-    </div>
-    <div className="grid gap-6">{plan?.sessions?.map((s: any, i: number) => (
-      <div key={i} className="flex gap-8 group">
-        <div className="w-24 font-black text-[10px] uppercase text-slate-300 pt-2">{s.period}</div>
-        <div className="flex-1 bg-slate-50 rounded-3xl p-6 border group-hover:bg-white transition-all"><h4 className="font-black text-lg text-slate-800">{s.topic}</h4><p className="text-sm text-slate-600 mt-2">{s.objective}</p></div>
+const HomeworkView = ({ homework }: any) => (
+  <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-w-4xl mx-auto border border-slate-100 animate-in fade-in zoom-in-95 duration-500">
+    <div className="bg-[#E6F4F5] p-12 md:p-16 text-center">
+      <div className="inline-flex items-center gap-3 px-6 py-2 bg-white rounded-full text-[#4FB5C0] font-black uppercase text-[10px] tracking-widest shadow-sm mb-6">
+        <Sparkles size={14} /> Student Mission
       </div>
-    ))}</div>
+      <h3 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tighter uppercase mb-4">{homework.title}</h3>
+      <p className="text-slate-500 font-bold italic text-lg leading-relaxed max-w-2xl mx-auto">"{homework.intro}"</p>
+    </div>
+
+    <div className="p-10 md:p-16 space-y-16">
+      {homework.tasks.map((task: any, idx: number) => (
+        <div key={idx} className="space-y-6 animate-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: `${idx * 150}ms` }}>
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shrink-0">
+              {task.partNumber}
+            </div>
+            <div>
+              <h4 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight">{task.title}</h4>
+              <p className="text-slate-500 font-bold text-sm">{task.instruction}</p>
+            </div>
+          </div>
+
+          <div className="pl-18">
+            {task.type === 'identification' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {task.items?.map((item: string, i: number) => (
+                  <div key={i} className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-[#4FB5C0] transition-all group">
+                    <div className="w-10 h-10 rounded-full border-2 border-slate-200 flex items-center justify-center group-hover:border-[#4FB5C0] transition-colors"><Circle size={16} className="text-transparent" /></div>
+                    <span className="font-bold text-slate-700">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {task.type === 'creative' && (
+              <div className="space-y-6">
+                <div className="w-full aspect-[16/9] border-4 border-dashed border-slate-100 rounded-[2rem] bg-slate-50 flex items-center justify-center text-slate-300">
+                  <div className="text-center">
+                    <Pencil size={48} className="mx-auto mb-4 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-widest">Draw Box: Area for Creation</p>
+                  </div>
+                </div>
+                <div className="p-6 bg-[#E6F4F5]/50 border-l-4 border-[#4FB5C0] rounded-r-2xl">
+                   <p className="text-sm font-bold text-[#4FB5C0]">Teacher Tip: {task.instruction.includes('Shield') ? 'Ask students to use bold colors for their rules!' : 'Help students identify local examples.'}</p>
+                </div>
+              </div>
+            )}
+
+            {task.type === 'mcq' && (
+              <div className="space-y-4">
+                {task.options?.map((opt: string, i: number) => (
+                  <div key={i} className="flex items-center gap-4 p-5 bg-white border border-slate-100 rounded-2xl hover:bg-[#E6F4F5] hover:border-[#4FB5C0] transition-all cursor-pointer shadow-sm group">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-[#4FB5C0] group-hover:text-white transition-colors">{String.fromCharCode(65 + i)}</div>
+                    <span className="font-bold text-slate-700">{opt}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="p-10 border-t bg-slate-50 flex justify-center no-print">
+      <button onClick={() => window.print()} className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-3 shadow-xl hover:scale-105 active:scale-95 transition-all"><Printer size={20} /> Print Student Handout</button>
+    </div>
+  </div>
+);
+
+const PlanView = ({ plan, onSessionAction }: any) => (
+  <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-w-5xl mx-auto animate-in fade-in zoom-in-95 duration-500 flex flex-col border border-slate-100">
+    <div className="bg-[#4F46E5] p-12 md:p-16 text-white relative overflow-hidden">
+      <div className="absolute right-0 top-0 p-8 opacity-10 pointer-events-none">
+        <Monitor size={240} className="-mr-12 -mt-12" />
+      </div>
+      <div className="relative z-10 space-y-6">
+        <div className="flex justify-between items-start">
+          <div className="space-y-4">
+            <h3 className="text-4xl md:text-6xl font-black tracking-tighter leading-tight max-w-2xl uppercase">{plan?.title || "Educational Roadmap"}</h3>
+            <p className="text-indigo-200 font-black uppercase text-xs tracking-[0.3em]">{plan?.timeframe || "Plan"}</p>
+          </div>
+          <button onClick={() => window.print()} className="p-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl no-print transition-all backdrop-blur-md shadow-xl"><Printer size={24} /></button>
+        </div>
+      </div>
+    </div>
+    <div className="p-10 md:p-20 bg-white">
+      <div className="relative">
+        <div className="absolute left-[23px] top-0 bottom-0 w-1 bg-slate-100 hidden md:block"></div>
+        <div className="space-y-16">
+          {plan?.sessions?.map((s: any, i: number) => (
+            <div key={i} className="relative flex flex-col md:flex-row gap-8 group">
+              <div className="relative z-10 w-12 h-12 bg-white border-2 border-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-xl shadow-sm group-hover:border-indigo-50 transition-colors shrink-0">{i + 1}</div>
+              <div className="flex-1 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <p className="text-indigo-500 font-black uppercase text-[10px] tracking-[0.2em]">{s.period}</p>
+                    <h4 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight leading-tight">{s.topic}</h4>
+                    <p className="text-slate-500 font-medium italic text-sm leading-relaxed">Objective: {s.objective}</p>
+                  </div>
+                  <div className="flex gap-2 no-print">
+                    <button onClick={() => onSessionAction('explain', s.topic)} title="Generate Slide" className="p-3 bg-[#E6F4F5] text-[#4FB5C0] rounded-xl hover:bg-[#4FB5C0] hover:text-white transition-all shadow-sm"><Monitor size={18} /></button>
+                    <button onClick={() => onSessionAction('homework', s.topic)} title="Homework Assignment" className="p-3 bg-amber-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all shadow-sm"><Pencil size={18} /></button>
+                    <button onClick={() => onSessionAction('paper', s.topic)} title="Generate Questions" className="p-3 bg-indigo-50 text-indigo-500 rounded-xl hover:bg-indigo-500 hover:text-white transition-all shadow-sm"><QuestionIcon size={18} /></button>
+                  </div>
+                </div>
+                <div className="bg-slate-50/50 rounded-[2rem] p-8 border border-slate-100 group-hover:bg-white group-hover:shadow-xl group-hover:border-indigo-50 transition-all">
+                  <p className="text-emerald-500 font-black uppercase text-[9px] tracking-[0.3em] mb-3">Recommended Activity</p>
+                  <p className="text-slate-700 font-medium leading-relaxed">{s.activity || "Interactive classroom discussion."}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   </div>
 );
 
@@ -591,27 +888,43 @@ const EditablePaper = ({ paper, onUpdate }: { paper: QuestionPaper, onUpdate: (p
             <div className="space-y-12">
               {section.questions?.map((q, qIdx) => {
                 const questionNumber = qIdx + 1;
+                
                 if (section.type === 'either-or') {
                   return (
                     <div key={q.id} className="space-y-6 relative group pl-4">
+                      {/* Sub-question A */}
                       <div className="flex items-start gap-4">
                         <div className="font-black text-2xl md:text-3xl text-slate-900 min-w-[3.5rem] pt-1">{questionNumber}.</div>
                         <div className="flex-1">
-                          <div className="flex gap-4 items-start"><span className="font-bold text-xl md:text-2xl mt-1 shrink-0">a)</span><AutoResizeTextarea className="w-full text-lg md:text-xl font-bold bg-transparent leading-relaxed font-serif text-slate-900" value={q.text} onChange={(e:any) => handleUpdateQuestion(sIdx, qIdx, 'text', e.target.value)} /></div>
+                          <div className="flex gap-4 items-start">
+                            <span className="font-bold text-xl md:text-2xl mt-1 shrink-0">a)</span>
+                            <AutoResizeTextarea className="w-full text-lg md:text-xl font-bold bg-transparent leading-relaxed font-serif text-slate-900" value={q.text} onChange={(e:any) => handleUpdateQuestion(sIdx, qIdx, 'text', e.target.value)} />
+                          </div>
                         </div>
                         <div className="font-black text-sm md:text-base text-slate-900 pt-2 shrink-0">{section.marksPerQuestion}M</div>
                       </div>
-                      <div className="flex items-center justify-center py-4 relative"><div className="w-full border-t border-slate-200 absolute top-1/2 left-0 z-0"></div><span className="relative z-10 px-8 text-xs font-black text-slate-400 bg-white uppercase tracking-[0.5em] select-none">--------------------------------OR-------------------------------</span></div>
+                      
+                      {/* "OR" Divider */}
+                      <div className="flex items-center justify-center py-4 relative">
+                        <div className="w-full border-t border-slate-200 absolute top-1/2 left-0 z-0"></div>
+                        <span className="relative z-10 px-10 text-[10px] font-black text-slate-400 bg-white uppercase tracking-[1em] select-none">OR</span>
+                      </div>
+                      
+                      {/* Sub-question B */}
                       <div className="flex items-start gap-4">
                         <div className="min-w-[3.5rem]"></div>
                         <div className="flex-1">
-                          <div className="flex gap-4 items-start"><span className="font-bold text-xl md:text-2xl mt-1 shrink-0">b)</span><AutoResizeTextarea className={`w-full text-lg md:text-xl font-bold bg-transparent leading-relaxed font-serif ${!q.alternativeText ? 'text-rose-400 italic' : 'text-slate-900'}`} placeholder="b) Enter the second choice for this question..." value={q.alternativeText || ""} onChange={(e:any) => handleUpdateQuestion(sIdx, qIdx, 'alternativeText', e.target.value)} /></div>
+                          <div className="flex gap-4 items-start">
+                            <span className="font-bold text-xl md:text-2xl mt-1 shrink-0">b)</span>
+                            <AutoResizeTextarea className={`w-full text-lg md:text-xl font-bold bg-transparent leading-relaxed font-serif ${!q.alternativeText ? 'text-rose-400 italic' : 'text-slate-900'}`} placeholder="Enter alternative question..." value={q.alternativeText || ""} onChange={(e:any) => handleUpdateQuestion(sIdx, qIdx, 'alternativeText', e.target.value)} />
+                          </div>
                         </div>
                         <div className="font-black text-sm md:text-base text-slate-900 pt-2 shrink-0">{section.marksPerQuestion}M</div>
                       </div>
                     </div>
                   );
                 }
+
                 return (
                   <div key={q.id} className="flex gap-8 items-start relative group pl-4">
                     <div className="font-black text-2xl md:text-3xl text-slate-900 min-w-[3.5rem] pt-1">{questionNumber}.</div>
