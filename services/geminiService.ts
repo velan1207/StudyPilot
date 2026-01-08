@@ -25,51 +25,79 @@ const safeParseJSON = <T>(text: string, fallback: T): T => {
   }
 };
 
-export const generateHomework = async (topic: string, grade: GradeLevel, language: Language, fileContext?: { base64: string, mimeType: string } | null) => {
+export const generateSyllabusPlan = async (duration: number, durationType: 'Days' | 'Weeks' | 'Months', grade: GradeLevel, language: Language, fileContext: { base64: string, mimeType: string }): Promise<SyllabusPlan> => {
   const ai = getAIClient();
-  const prompt = `Act as an expert primary school educator. Create a structured 3-part homework assignment for Grade ${grade} in ${language} SPECIFICALLY AND ONLY about the topic: "${topic}".
   
-  IMPORTANT: IGNORE all other topics in the provided context/files. Focus EXCLUSIVELY on "${topic}".
-  
-  The homework must follow this EXACT structure:
-  1. Part 1: Identification/Matching (Identify items related to the topic).
-  2. Part 2: Creative Application (A drawing or writing task involving a concept like a 'Strong Shield').
-  3. Part 3: Decision Making (A 'Tech Hero' scenario with Multiple Choice answers).
-
-  Ensure instructions are pedagogical and age-appropriate. Return strictly valid JSON.`;
-
-  const parts: any[] = [];
-  if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
-  parts.push({ text: prompt });
+  const prompt = `FAST GENERATION MODE: Based on the syllabus, create a high-impact roadmap for ${grade} in ${language} for ${duration} ${durationType}. 
+  Provide exactly 5-8 key sessions that cover the most critical parts of the content.
+  Keep descriptions brief and actionable. Return valid JSON.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts }],
-    config: {
+    contents: {
+      parts: [
+        { inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } }, 
+        { text: prompt }
+      ]
+    },
+    config: { 
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
           title: { type: Type.STRING },
-          intro: { type: Type.STRING },
-          tasks: {
+          timeframe: { type: Type.STRING },
+          sessions: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
-                partNumber: { type: Type.NUMBER },
-                title: { type: Type.STRING },
-                instruction: { type: Type.STRING },
-                type: { type: Type.STRING, enum: ["identification", "creative", "mcq"] },
-                items: { type: Type.ARRAY, items: { type: Type.STRING } },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswer: { type: Type.STRING }
-              },
-              required: ["partNumber", "title", "instruction", "type"]
+                period: { type: Type.STRING },
+                topic: { type: Type.STRING },
+                objective: { type: Type.STRING },
+                activity: { type: Type.STRING }
+              }
             }
           }
         },
-        required: ["title", "intro", "tasks"]
+        required: ["title", "timeframe", "sessions"]
+      }
+    }
+  });
+  return safeParseJSON<SyllabusPlan>(response.text || "{}", { title: "", timeframe: "", sessions: [], finalAssessment: "" });
+};
+
+// Fix: This is the primary implementation of getHelpAdvice using structured JSON output.
+export const getHelpAdvice = async (issue: string, grade: string, language: string) => {
+  const ai = getAIClient();
+  const prompt = `Act as a master classroom management coach. Provide advice for a teacher dealing with: "${issue}" in ${grade}. 
+  Language: ${language}.
+  IMPORTANT: Do not use markdown symbols like #, *, or ---.
+  Return strictly valid JSON.`;
+
+  const response = await ai.models.generateContent({ 
+    model: 'gemini-3-flash-preview', 
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING, description: "A one sentence empathetic summary of the root cause." },
+          sections: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING, description: "Short catchy title (e.g. Immediate Fix)" },
+                description: { type: Type.STRING, description: "The core advice. Use plain text only." },
+                actionStep: { type: Type.STRING, description: "One specific actionable sentence." }
+              }
+            }
+          },
+          teacherTip: { type: Type.STRING, description: "A final encouraging professional tip." }
+        },
+        required: ["summary", "sections", "teacherTip"]
       }
     }
   });
@@ -77,55 +105,95 @@ export const generateHomework = async (topic: string, grade: GradeLevel, languag
 };
 
 export const generateQuestionPaper = async (
-  fileContext: { base64: string, mimeType: string } | null, 
+  syllabusFile: { base64: string, mimeType: string } | null, 
+  formatFile: { base64: string, mimeType: string } | null,
   grade: GradeLevel, 
   language: Language, 
   settings: QuestionSettings,
-  specificTopic?: string
+  specificTopic?: string,
+  useContextFormat?: boolean
 ): Promise<QuestionPaper> => {
   const ai = getAIClient();
   
-  const blueprintDescription = settings.sections.map((s, idx) => {
-    let detail = `Section ${idx + 1}: Total ${s.count} main numbered items. Each item is worth ${s.marksPerQuestion} marks.`;
-    
-    if (s.type === 'either-or') {
-      detail += ` \n- TYPE: INTERNAL CHOICE (EITHER/OR). 
-      \n- STRICT REQUIREMENT: You MUST provide TWO full distinct questions for EVERY one of the ${s.count} main numbers.
-        1. Put the first question in the "text" field.
-        2. Put the alternative/choice question in the "alternativeText" field.
-      \n- MARKS: Mention that each sub-choice is worth ${s.marksPerQuestion} marks.`;
-    }
-
-    if (s.marksPerQuestion === 1 && s.oneMarkVariety) {
-      detail += ` \n- VARIETY: Use ${s.oneMarkVariety}.`;
-    }
-
-    if (s.type === 'any-x-among-y') {
-      const x = s.choiceCount || Math.ceil(s.count * 0.7);
-      detail += ` \n- TYPE: Choice Based. \n- INSTRUCTION: "Answer any ${x} questions out of ${s.count}".`;
-    } 
-    
-    return detail;
-  }).join('\n\n');
-
-  const topicConstraint = specificTopic ? `STRICTLY FOCUS EXCLUSIVELY AND ONLY on the topic: "${specificTopic}". IGNORE all other topics from any files or context provided.` : `Base the content on the uploaded syllabus context.`;
-
-  const prompt = `Act as an expert Academic Examiner. Create a professional Question Paper for Grade ${grade} in ${language}.
-  ${topicConstraint}
+  let structureInstruction = "";
   
-  BLUEPRINT RULES:
-  ${blueprintDescription}
-  
-  Return strictly valid JSON.`;
+  if (useContextFormat && formatFile) {
+    structureInstruction = `
+    STRICT STRUCTURAL TEMPLATE:
+    1. Analyze the file provided as the "FORMAT SOURCE" (Previous Year Paper/Sample).
+    2. Mirror its EXACT layout: section names, marks distribution, choices (internal or external), and question types (MCQ, short, long).
+    3. DO NOT use the content (questions) from the FORMAT SOURCE.
+    4. Generate ENTIRELY NEW questions based on the "CONTENT SOURCE" or Topic.
+    `;
+  } else {
+    const blueprintDescription = settings.sections.map((s, idx) => {
+      const questionsToAnswer = s.type === 'any-x-among-y' ? (s.choiceCount || s.count) : s.count;
+      const sectionExpectedScore = questionsToAnswer * s.marksPerQuestion;
 
-  const contents: any[] = [{ text: prompt }];
-  if (fileContext) {
-    contents.unshift({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
+      let detail = `SECTION ${idx + 1}:
+      - TITLE: Use a standard academic title (e.g. "Section A")
+      - QUESTION TYPE: ${s.type.toUpperCase()}
+      - MARKS PER QUESTION: ${s.marksPerQuestion}
+      - TOTAL QUESTIONS YOU MUST GENERATE: ${s.count}
+      - STUDENT MUST CHOOSE AND ANSWER: ${questionsToAnswer}
+      - CALCULATED TOTAL FOR THIS SECTION (totalSectionMarks): ${sectionExpectedScore}`;
+      
+      if (s.type === 'either-or') {
+        detail += ` \n- FORMAT: INTERNAL CHOICE. For each of the ${s.count} items, you MUST provide "text" (Choice A) AND "alternativeText" (Choice B).`;
+      }
+
+      if (s.type === 'any-x-among-y') {
+        detail += ` \n- INSTRUCTION: "Answer any ${questionsToAnswer} out of the ${s.count} following questions."`;
+      }
+
+      if (s.marksPerQuestion === 1 && s.oneMarkVariety) {
+        detail += ` \n- VARIETY: Only use ${s.oneMarkVariety} for this section.`;
+      }
+
+      return detail;
+    }).join('\n\n');
+
+    structureInstruction = `
+    STRICT PAPER CONSTRAINTS:
+    1. TOTAL MARKS (Sum of all section answerable marks) MUST BE EXACTLY: ${settings.totalMarks}
+    2. DURATION (As text) MUST BE EXACTLY: "${settings.duration}"
+    3. DIFFICULTY LEVEL: ${settings.difficulty}
+    
+    EXAM STRUCTURE (BLUEPRINT):
+    ${blueprintDescription}
+    `;
   }
 
+  const topicConstraint = specificTopic ? `STRICTLY FOCUS CONTENT ON: "${specificTopic}".` : `Base the content on the uploaded content context.`;
+
+  const prompt = `Act as an expert Academic Examiner for Grade ${grade} in ${language}. Generate a professional Question Paper.
+
+  ${structureInstruction}
+
+  ${topicConstraint}
+
+  JSON OUTPUT RULES:
+  - Return strictly valid JSON.
+  - No "coId" or "bloomLevel" fields.
+  - The sum of totalSectionMarks must match the intended paper total.`;
+
+  const parts: any[] = [];
+  
+  if (syllabusFile) {
+    parts.push({ text: "CONTENT SOURCE (Syllabus/Notes): Use this for question content." });
+    parts.push({ inlineData: { data: syllabusFile.base64, mimeType: syllabusFile.mimeType } });
+  }
+
+  if (formatFile && useContextFormat) {
+    parts.push({ text: "FORMAT SOURCE (Template Paper): Use this for structure/layout ONLY." });
+    parts.push({ inlineData: { data: formatFile.base64, mimeType: formatFile.mimeType } });
+  }
+
+  parts.push({ text: prompt });
+
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [{ parts: contents }],
+    model: 'gemini-3-flash-preview', 
+    contents: { parts },
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -173,11 +241,11 @@ export const generateQuestionPaper = async (
   return safeParseJSON<QuestionPaper>(response.text || "{}", { title: "", instructions: "", totalMarks: 0, duration: "", sections: [] });
 };
 
-export const generateLocalContent = async (topic: string, grade: GradeLevel, language: Language) => {
+export const generateLocalContent = async (topic: string, grade: GradeLevel, language: Language): Promise<any> => {
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Generate a rich pedagogical lesson about "${topic}" for ${grade} in ${language}. Return JSON.`,
+    contents: `Create structured educational content for Grade ${grade} in ${language} about "${topic}". Include local references relevant to students in this region.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -205,21 +273,22 @@ export const generateLocalContent = async (topic: string, grade: GradeLevel, lan
           },
           realWorldUsage: { type: Type.STRING },
           funFact: { type: Type.STRING }
-        }
+        },
+        required: ["title", "intro", "keyIngredients", "example", "realWorldUsage", "funFact"]
       }
     }
   });
-  return safeParseJSON(response.text || "{}", { title: topic, intro: "", keyIngredients: [], example: { scenario: "", steps: [], result: "" }, realWorldUsage: "", funFact: "" });
+  return safeParseJSON(response.text || "{}", null);
 };
 
-export const analyzeTextbookImage = async (base64: string, grade: GradeLevel, language: Language) => {
+export const analyzeTextbookImage = async (base64: string, grade: GradeLevel, language: Language): Promise<any> => {
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: {
       parts: [
-        { inlineData: { data: base64, mimeType: "image/jpeg" } },
-        { text: `Analyze this textbook page and create a worksheet for ${grade} in ${language}. Return JSON.` }
+        { inlineData: { data: base64, mimeType: 'image/jpeg' } },
+        { text: `Analyze this textbook page and create a clean, structured worksheet for Grade ${grade} in ${language}. Ensure the questions are pedagogically sound and match the identified concepts.` }
       ]
     },
     config: {
@@ -254,48 +323,173 @@ export const analyzeTextbookImage = async (base64: string, grade: GradeLevel, la
       }
     }
   });
-  return safeParseJSON(response.text || "{}", { title: "Worksheet", instructions: "", sections: [] });
+  return safeParseJSON(response.text || "{}", null);
 };
 
-export const askQuestion = async (question: string, language: Language) => {
+export const askQuestion = async (question: string, language: Language): Promise<any> => {
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Answer this in ${language}: "${question}". Return JSON.`,
+    contents: `Explain "${question}" in ${language} for students using simple analogies and a structured format.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
           intro: { type: Type.STRING },
-          ingredients: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, desc: { type: Type.STRING } } } },
-          example: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, scenario: { type: Type.STRING }, logic: { type: Type.ARRAY, items: { type: Type.STRING } }, summary: { type: Type.STRING } } },
+          ingredients: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                desc: { type: Type.STRING }
+              }
+            }
+          },
+          example: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              scenario: { type: Type.STRING },
+              logic: { type: Type.ARRAY, items: { type: Type.STRING } },
+              summary: { type: Type.STRING }
+            }
+          },
           usage: { type: Type.STRING },
           funFact: { type: Type.STRING }
         }
       }
     }
   });
-  return safeParseJSON(response.text || "{}", { intro: "", ingredients: [], example: { title: "", scenario: "", logic: [], summary: "" }, usage: "", funFact: "" });
+  return safeParseJSON(response.text || "{}", null);
+};
+
+export const generateVisualAid = async (topic: string, isColor: boolean): Promise<{ imageUrl: string, tips: string }> => {
+  const ai = getAIClient();
+  const style = isColor ? "colorful illustration" : "blackboard style line art";
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+      parts: [
+        { text: `Create an accurate educational diagram of "${topic}" in ${style}. Also provide a short paragraph of teaching tips on how to use this visual aid in a classroom.` }
+      ]
+    }
+  });
+
+  let imageUrl = '';
+  let tips = '';
+
+  const parts = response.candidates?.[0]?.content?.parts || [];
+  for (const part of parts) {
+    if (part.inlineData) {
+      imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+    } else if (part.text) {
+      tips += part.text;
+    }
+  }
+
+  return { imageUrl, tips };
+};
+
+export const generateHomework = async (topic: string, grade: GradeLevel, language: Language, fileContext?: { base64: string, mimeType: string } | null) => {
+  const ai = getAIClient();
+  const prompt = `Act as an expert primary school educator. Create a structured 3-part homework assignment for Grade ${grade} in ${language} SPECIFICALLY AND ONLY about the topic: "${topic}".
+  
+  IMPORTANT: IGNORE all other topics in the provided context/files. Focus EXCLUSIVELY on "${topic}".
+  
+  The homework must follow this EXACT structure:
+  1. Part 1: Identification/Matching (Identify items related to the topic).
+  2. Part 2: Creative Application (A drawing or writing task involving a concept like a 'Strong Shield').
+  3. Part 3: Decision Making (A 'Tech Hero' scenario with Multiple Choice answers).
+
+  Ensure instructions are pedagogical and age-appropriate. Return strictly valid JSON.`;
+
+  const parts: any[] = [];
+  if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
+  parts.push({ text: prompt });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          intro: { type: Type.STRING },
+          tasks: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                partNumber: { type: Type.NUMBER },
+                title: { type: Type.STRING },
+                instruction: { type: Type.STRING },
+                type: { type: Type.STRING, enum: ["identification", "creative", "mcq"] },
+                items: { type: Type.ARRAY, items: { type: Type.STRING } },
+                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                correctAnswer: { type: Type.STRING }
+              },
+              required: ["partNumber", "title", "instruction", "type"]
+            }
+          }
+        },
+        required: ["title", "intro", "tasks"]
+      }
+    }
+  });
+  return safeParseJSON(response.text || "{}", null);
+};
+
+const generateSlideImage = async (prompt: string): Promise<string> => {
+  const ai = getAIClient();
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: `A professional, educational illustration for a presentation slide showing: ${prompt}. No text in image.` }]
+      }
+    });
+    
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+  } catch (err: any) {
+    console.warn("Slide image generation failed:", err.message);
+  }
+  return "";
 };
 
 export const generateSlideDeck = async (topic: string, fileContext: { base64: string, mimeType: string } | null, language: Language, numSlides: number = 6): Promise<SlideDeck> => {
   const ai = getAIClient();
   const parts: any[] = [];
   if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
-  // CRITICAL: Exclusive focus on topic
-  parts.push({ text: `Create a professional Slide Deck SPECIFICALLY AND EXCLUSIVELY about "${topic}" in ${language}. MUST be exactly ${numSlides} slides. Return valid JSON. IGNORE all other topics in the context.` });
+  
+  const prompt = `Act as an expert Educational Designer. Create a professional Slide Deck in ${language} about "${topic}". 
+  CONSTRAINTS:
+  - Generate EXACTLY ${numSlides} slides.
+  - Slide 1: Title Slide.
+  - Slide ${numSlides}: Conclusion.
+  - Each slide: 1 title, 3 bullet points.
+  - visualPrompt: Detailed prompt for an image generator (NO TEXT IN IMAGE).
+  - Return strictly valid JSON.`;
+
+  parts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts }],
+    model: 'gemini-3-flash-preview', 
+    contents: { parts },
     config: { 
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
           title: { type: Type.STRING },
-          template: { type: Type.STRING },
+          template: { type: Type.STRING, enum: ["modern", "academic", "creative"] },
           slides: {
             type: Type.ARRAY,
             items: {
@@ -304,49 +498,33 @@ export const generateSlideDeck = async (topic: string, fileContext: { base64: st
                 title: { type: Type.STRING },
                 content: { type: Type.ARRAY, items: { type: Type.STRING } },
                 visualPrompt: { type: Type.STRING }
-              }
+              },
+              required: ["title", "content", "visualPrompt"]
             }
           }
-        }
+        },
+        required: ["title", "template", "slides"]
       }
     }
   });
   
-  return safeParseJSON<SlideDeck>(response.text || "{}", { title: topic, template: "modern", slides: [] });
-};
+  const result = safeParseJSON<SlideDeck>(response.text || "{}", { title: topic, template: "modern", slides: [] });
+  
+  if (!result.slides || result.slides.length === 0) {
+    throw new Error("Generation failed: No content produced.");
+  }
 
-export const generateSyllabusPlan = async (duration: number, durationType: 'Days' | 'Weeks' | 'Months', grade: GradeLevel, language: Language, fileContext: { base64: string, mimeType: string }): Promise<SyllabusPlan> => {
-  const ai = getAIClient();
-  const prompt = `Based on the uploaded syllabus, create a roadmap for ${grade} in ${language} spanning ${duration} ${durationType}. Return valid JSON.`;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } }, { text: prompt }] }],
-    config: { 
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          timeframe: { type: Type.STRING },
-          sessions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                period: { type: Type.STRING },
-                topic: { type: Type.STRING },
-                objective: { type: Type.STRING },
-                activity: { type: Type.STRING }
-              }
-            }
-          },
-          finalAssessment: { type: Type.STRING }
-        }
-      }
+  const imageRequests = result.slides.map(async (slide, index) => {
+    if (slide.visualPrompt) {
+      await new Promise(r => setTimeout(r, index * 500));
+      slide.imageUrl = await generateSlideImage(slide.visualPrompt);
     }
+    return slide;
   });
-  return safeParseJSON<SyllabusPlan>(response.text || "{}", { title: "", timeframe: "", sessions: [], finalAssessment: "" });
+
+  await Promise.all(imageRequests);
+
+  return result;
 };
 
 export const askChatQuestion = async (question: string, fileContext: { base64: string, mimeType: string } | null, language: Language) => {
@@ -354,39 +532,87 @@ export const askChatQuestion = async (question: string, fileContext: { base64: s
   const parts: any[] = [];
   if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
   
-  const systemInstruction = `You are a professional educational assistant. 
-  Respond in ${language}. 
-  Avoid complex LaTeX symbols. 
-  Use standard bolding (**Text**) for emphasis and ### for section headers. 
-  Use simple bullet points (* Item) for lists.`;
+  const systemInstruction = `You are a professional educational assistant. Respond in ${language}. Avoid complex LaTeX symbols. Use standard bolding (**Text**) for emphasis and ### for section headers. Use simple bullet points (* Item) for lists.`;
 
   parts.push({ text: `Question: ${question}` });
   
   const response = await ai.models.generateContent({ 
     model: 'gemini-3-flash-preview', 
-    contents: [{ parts }],
-    config: {
-      systemInstruction
-    }
+    contents: { parts },
+    config: { systemInstruction }
   });
   return response.text || "";
 };
 
-export const generateVisualAid = async (topic: string, isColor: boolean) => {
-  const ai = getAIClient();
-  const prompt = isColor ? `Educational diagram of ${topic}.` : `Line art diagram of ${topic}.`;
-  const imgRes = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: [{ parts: [{ text: prompt }] }] });
-  let imageUrl = "";
-  for (const part of imgRes.candidates?.[0]?.content?.parts || []) { 
-    if (part.inlineData) imageUrl = `data:image/png;base64,${part.inlineData.data}`; 
-  }
-  return { imageUrl, tips: "Use this to explain concepts visually." };
+export const getDemonstrationAudio = async (text: string, language: Language) => { 
+  const ai = getAIClient(); 
+  const res = await ai.models.generateContent({ 
+    model: "gemini-2.5-flash-preview-tts", 
+    contents: [{ parts: [{ text }] }], 
+    config: { responseModalalities: [Modality.AUDIO] } 
+  }); 
+  return res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data; 
 };
 
-export const getHelpAdvice = async (issue: string, grade: string, language: string) => {
-  const ai = getAIClient();
-  const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: [{ parts: [{ text: `Advice for: ${issue}` }]}] });
-  return response.text || "";
+export async function assessReading(base64: string, text: string) { 
+  const ai = getAIClient(); 
+  const res = await ai.models.generateContent({ 
+    model: 'gemini-3-flash-preview', 
+    contents: {
+      parts: [
+        { inlineData: { data: base64, mimeType: 'audio/webm' } }, 
+        { text: `Assess this reading audio against the target text: "${text}". Provide accuracy and fluency scores.` }
+      ]
+    },
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          accuracyScore: { type: Type.NUMBER },
+          fluencyScore: { type: Type.NUMBER },
+          mispronouncedWords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          positiveFeedback: { type: Type.STRING },
+          improvementTips: { type: Type.STRING },
+          transcription: { type: Type.STRING }
+        }
+      }
+    } 
+  }); 
+  return safeParseJSON<ReadingAssessmentResult>(res.text || "{}", { accuracyScore: 0, fluencyScore: 0, mispronouncedWords: [], positiveFeedback: "", improvementTips: "", transcription: "" }); 
+};
+
+export const generateLessonPlan = async (topics: string[], grade: GradeLevel, language: Language, fileContext?: { base64: string, mimeType: string }): Promise<LessonPlan> => { 
+  const ai = getAIClient(); 
+  const parts: any[] = []; 
+  if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } }); 
+  parts.push({ text: `Create a lesson plan for: ${topics.join(', ')} for Grade ${grade} in ${language}.` }); 
+  const res = await ai.models.generateContent({ 
+    model: 'gemini-3-flash-preview', 
+    contents: { parts }, 
+    config: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          objectives: { type: Type.ARRAY, items: { type: Type.STRING } },
+          activities: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                grade: { type: Type.STRING },
+                description: { type: Type.STRING }
+              }
+            }
+          },
+          assessment: { type: Type.STRING }
+        }
+      }
+    } 
+  }); 
+  return safeParseJSON<LessonPlan>(res.text || "{}", { title: "", objectives: [], activities: [], assessment: "" }); 
 };
 
 export const decodeBase64 = (base64: string) => { 
@@ -405,36 +631,3 @@ export async function decodePCMToAudioBuffer(data: Uint8Array, ctx: AudioContext
   } 
   return b; 
 }
-
-export const getDemonstrationAudio = async (text: string, language: Language) => { 
-  const ai = getAIClient(); 
-  const res = await ai.models.generateContent({ 
-    model: "gemini-2.5-flash-preview-tts", 
-    contents: [{ parts: [{ text }] }], 
-    config: { responseModalities: [Modality.AUDIO] } 
-  }); 
-  return res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data; 
-};
-
-export const assessReading = async (base64: string, text: string) => { 
-  const ai = getAIClient(); 
-  const res = await ai.models.generateContent({ 
-    model: 'gemini-3-flash-preview', 
-    contents: [{ parts: [{ inlineData: { data: base64, mimeType: 'audio/webm' } }, { text }] }], 
-    config: { responseMimeType: "application/json" } 
-  }); 
-  return safeParseJSON<ReadingAssessmentResult>(res.text || "{}", { accuracyScore: 0, fluencyScore: 0, mispronouncedWords: [], positiveFeedback: "", improvementTips: "", transcription: "" }); 
-};
-
-export const generateLessonPlan = async (topics: string[], grade: GradeLevel, language: Language, fileContext?: { base64: string, mimeType: string }): Promise<LessonPlan> => { 
-  const ai = getAIClient(); 
-  const parts: any[] = []; 
-  if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } }); 
-  parts.push({ text: `Lesson plan for: ${topics.join(', ')}` }); 
-  const res = await ai.models.generateContent({ 
-    model: 'gemini-3-flash-preview', 
-    contents: [{ parts }], 
-    config: { responseMimeType: "application/json" } 
-  }); 
-  return safeParseJSON<LessonPlan>(res.text || "{}", { title: "", objectives: [], activities: [], assessment: "" }); 
-};

@@ -106,7 +106,7 @@ const Schedule: React.FC<{ context: TeacherContext }> = ({ context }) => {
 
   const timeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const daysHeader = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   useEffect(() => {
@@ -162,9 +162,23 @@ const Schedule: React.FC<{ context: TeacherContext }> = ({ context }) => {
       [day]: { ...(timetableData[day] || {}), [slot]: value }
     };
     setTimetableData(newGrid);
-    // Debounce or just save
     saveToFirebase(newGrid, sessions);
   };
+
+  // Calendar Logic
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const daysInMonth = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
+  const firstDay = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth());
+  const today = new Date();
+  const isToday = (day: number) => 
+    day === today.getDate() && 
+    currentDate.getMonth() === today.getMonth() && 
+    currentDate.getFullYear() === today.getFullYear();
+
+  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
   if (loading) return (
     <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -185,27 +199,35 @@ const Schedule: React.FC<{ context: TeacherContext }> = ({ context }) => {
                 {months[currentDate.getMonth()]} {currentDate.getFullYear()}
               </h3>
               <div className="flex gap-2">
-                <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><ChevronLeft size={18} /></button>
-                <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><ChevronRight size={18} /></button>
+                <button onClick={prevMonth} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><ChevronLeft size={18} /></button>
+                <button onClick={nextMonth} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><ChevronRight size={18} /></button>
               </div>
             </div>
 
             <div className="grid grid-cols-7 gap-1 md:gap-2 text-center">
-              {days.map(day => (
+              {daysHeader.map(day => (
                 <span key={day} className="text-[8px] md:text-[10px] font-black text-slate-300 uppercase tracking-widest">{day}</span>
               ))}
-              {Array.from({ length: 31 }).map((_, i) => (
-                <button 
-                  key={i} 
-                  className={`aspect-square flex items-center justify-center rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black transition-all ${
-                    i + 1 === currentDate.getDate() 
-                    ? 'bg-[#4FB5C0] text-white shadow-lg' 
-                    : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {i + 1}
-                </button>
+              {/* Empty cells for previous month */}
+              {Array.from({ length: firstDay }).map((_, i) => (
+                <div key={`empty-${i}`} className="aspect-square"></div>
               ))}
+              {/* Actual days */}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                return (
+                  <button 
+                    key={day} 
+                    className={`aspect-square flex items-center justify-center rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black transition-all ${
+                      isToday(day)
+                      ? 'bg-[#4FB5C0] text-white shadow-lg shadow-[#4FB5C0]/30' 
+                      : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -216,7 +238,7 @@ const Schedule: React.FC<{ context: TeacherContext }> = ({ context }) => {
               <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-none">Agenda</h2>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[#4FB5C0] font-black uppercase text-[9px] tracking-[0.2em]">
-                  {currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {today.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
                 {saving && <Loader2 size={10} className="animate-spin text-slate-300" />}
               </div>

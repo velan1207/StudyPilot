@@ -68,7 +68,6 @@ export interface Question {
   marks: number;
   options?: string[];
   variety?: OneMarkVariety;
-  // Fields for Either/Or internal choice
   alternativeText?: string;
   alternativeOptions?: string[];
 }
@@ -121,6 +120,28 @@ export interface ReadingAssessmentResult {
   positiveFeedback: string;
   improvementTips: string;
   transcription: string;
+}
+
+/* Added CourseOutcome for OBE Manager */
+export interface CourseOutcome {
+  id: string;
+  code: string;
+  description: string;
+  targetWeightage: number;
+}
+
+/* Added ProgramOutcome for OBE Manager */
+export interface ProgramOutcome {
+  id: string;
+  code: string;
+  description: string;
+}
+
+/* Added CO_PO_Mapping for OBE Manager */
+export interface CO_PO_Mapping {
+  coId: string;
+  poId: string;
+  strength: 0 | 1 | 2 | 3;
 }
 
 export const GRADE_TEXTS: Record<string, Partial<Record<Language, string>>> = {

@@ -10,10 +10,24 @@ import {
   Users, 
   RefreshCcw,
   Sparkles,
-  Info
+  Info,
+  CheckCircle2,
+  Lightbulb,
+  Zap,
+  Target
 } from 'lucide-react';
 import { TeacherContext } from '../types';
 import { getHelpAdvice } from '../services/geminiService';
+
+interface StructuredAdvice {
+  summary: string;
+  sections: {
+    title: string;
+    description: string;
+    actionStep: string;
+  }[];
+  teacherTip: string;
+}
 
 const QuickIssueButton = ({ icon: Icon, label, onClick }: { icon: any, label: string, onClick: () => void }) => (
   <button 
@@ -29,7 +43,7 @@ const QuickIssueButton = ({ icon: Icon, label, onClick }: { icon: any, label: st
 
 const HelpMode: React.FC<{ context: TeacherContext }> = ({ context }) => {
   const [input, setInput] = useState('');
-  const [advice, setAdvice] = useState<string | null>(null);
+  const [advice, setAdvice] = useState<StructuredAdvice | null>(null);
   const [loading, setLoading] = useState(false);
   const adviceEndRef = useRef<HTMLDivElement>(null);
 
@@ -49,41 +63,11 @@ const HelpMode: React.FC<{ context: TeacherContext }> = ({ context }) => {
       const res = await getHelpAdvice(text, context.grade, context.language);
       setAdvice(res);
     } catch (err) {
-      setAdvice("Something went wrong. Please take a deep breath and try again.");
+      console.error(err);
+      alert("Something went wrong. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const sanitizeText = (text: string) => {
-    return text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
-  };
-
-  const formatAdvice = (text: string) => {
-    const sections = text.split(/\d️⃣/);
-    return sections.filter(s => s.trim()).map((section, idx) => {
-      const icon = ['❓', '⚡', '📐', '💡'][idx] || '🔹';
-      const titles = [
-        "What might be happening",
-        "What to do right now",
-        "Simple classroom strategy",
-        "Teacher Tip"
-      ];
-      
-      const cleanContent = sanitizeText(section.replace(titles[idx], '').trim());
-      
-      return (
-        <div key={idx} className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm space-y-3 md:space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 150}ms` }}>
-          <div className="flex items-center gap-3">
-             <span className="text-xl md:text-2xl">{icon}</span>
-             <h4 className="font-black text-xs md:text-sm uppercase tracking-widest text-slate-800">{titles[idx]}</h4>
-          </div>
-          <div className="text-slate-600 font-medium leading-relaxed pl-8 md:pl-10 whitespace-pre-wrap text-sm md:text-base">
-            {cleanContent}
-          </div>
-        </div>
-      );
-    });
   };
 
   return (
@@ -94,7 +78,7 @@ const HelpMode: React.FC<{ context: TeacherContext }> = ({ context }) => {
              Help Mode Active
           </div>
           <h2 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tighter leading-tight uppercase">Instant Support</h2>
-          <p className="text-slate-400 font-medium text-base md:text-lg">Guidance for {context.grade}.</p>
+          <p className="text-slate-400 font-medium text-base md:text-lg">AI coaching for {context.grade}.</p>
         </div>
         <div className="w-14 h-14 md:w-20 md:h-20 bg-rose-500 rounded-2xl md:rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-rose-500/20 animate-pulse shrink-0 self-start sm:self-center">
            <ShieldAlert size={28} className="md:w-[40px] md:h-[40px]" />
@@ -112,6 +96,12 @@ const HelpMode: React.FC<{ context: TeacherContext }> = ({ context }) => {
               className="w-full h-40 md:h-48 px-6 py-5 md:px-8 md:py-6 bg-slate-50 border-none rounded-2xl md:rounded-[2rem] text-base md:text-lg font-black text-slate-800 outline-none focus:ring-4 ring-rose-500/5 transition-all resize-none"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleHelp();
+                }
+              }}
             />
             <button 
               onClick={() => handleHelp()}
@@ -136,31 +126,74 @@ const HelpMode: React.FC<{ context: TeacherContext }> = ({ context }) => {
       </div>
 
       {advice && (
-        <div className="space-y-6 pb-20">
-           {formatAdvice(advice)}
-           <div ref={adviceEndRef} />
+        <div className="space-y-8 pb-20 animate-in fade-in duration-500">
+           {/* Summary Section */}
+           <div className="bg-white border-l-8 border-rose-500 rounded-3xl p-8 shadow-sm">
+             <div className="flex items-center gap-3 mb-3 text-rose-500 font-black uppercase text-xs tracking-widest">
+                <Target size={18} /> The Root Cause
+             </div>
+             <p className="text-xl md:text-2xl font-bold text-slate-800 leading-tight">
+               {advice.summary}
+             </p>
+           </div>
+
+           {/* Advice Cards */}
+           <div className="grid grid-cols-1 gap-6">
+              {advice.sections.map((section, idx) => (
+                <div key={idx} className="bg-white rounded-[2.5rem] border border-slate-100 p-8 md:p-10 shadow-sm space-y-6 animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 150}ms` }}>
+                  <div className="flex items-center justify-between gap-4">
+                     <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-lg">
+                          {idx + 1}
+                        </div>
+                        <h4 className="font-black text-lg md:text-xl uppercase tracking-tight text-slate-800">{section.title}</h4>
+                     </div>
+                     <Zap size={24} className="text-amber-400 opacity-20 hidden sm:block" />
+                  </div>
+                  
+                  <p className="text-slate-600 font-medium leading-relaxed text-base md:text-lg">
+                    {section.description}
+                  </p>
+
+                  <div className="bg-[#F0F9FA] border border-[#4FB5C0]/20 rounded-2xl p-6 flex items-start gap-4">
+                     <CheckCircle2 className="text-[#4FB5C0] shrink-0 mt-1" size={20} />
+                     <div>
+                        <p className="text-[10px] font-black text-[#4FB5C0] uppercase tracking-widest mb-1">Action Step</p>
+                        <p className="text-slate-800 font-black text-sm md:text-base leading-snug">
+                          {section.actionStep}
+                        </p>
+                     </div>
+                  </div>
+                </div>
+              ))}
+           </div>
            
-           <div className="bg-indigo-50 border border-indigo-100 rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 flex flex-col sm:flex-row items-start gap-4 md:gap-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
-                 <Info size={20} className="md:w-[24px] md:h-[24px]" />
+           {/* Teacher Tip Footer */}
+           <div className="bg-indigo-600 border border-indigo-700 rounded-[2.5rem] p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 text-white relative overflow-hidden shadow-2xl">
+              <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+                 <Lightbulb size={240} />
               </div>
-              <div className="space-y-1 md:space-y-2">
-                <h5 className="font-black text-xs md:text-sm uppercase tracking-widest text-indigo-800 leading-none">Support Reminder</h5>
-                <p className="text-indigo-900/60 font-medium leading-relaxed text-sm md:text-base">
-                  Classroom management takes time. These strategies are meant to regain control in the moment. Stay calm and lead with empathy.
+              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
+                 <Info size={32} />
+              </div>
+              <div className="space-y-2 relative z-10 text-center md:text-left">
+                <h5 className="font-black text-xs md:text-sm uppercase tracking-[0.3em] text-indigo-200">Coach's Professional Tip</h5>
+                <p className="text-indigo-50 font-bold italic leading-relaxed text-lg md:text-xl">
+                  "{advice.teacherTip}"
                 </p>
               </div>
            </div>
+
+           <div ref={adviceEndRef} />
         </div>
       )}
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-12 md:py-20 space-y-4 md:space-y-6 animate-pulse">
-           <div className="w-12 h-12 md:w-16 md:h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-300">
-              {/* FIXED: Removed duplicate className attribute */}
+           <div className="w-16 h-16 md:w-20 md:h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center text-rose-500 shadow-inner">
               <Loader2 className="animate-spin md:w-[32px] md:h-[32px]" size={24} />
            </div>
-           <p className="text-[9px] md:text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Consulting Specialist...</p>
+           <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Consulting Educational Coach...</p>
         </div>
       )}
     </div>
