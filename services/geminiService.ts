@@ -28,7 +28,8 @@ const safeParseJSON = <T>(text: string, fallback: T): T => {
 export const generateSyllabusPlan = async (duration: number, durationType: 'Days' | 'Weeks' | 'Months', grade: GradeLevel, language: Language, fileContext: { base64: string, mimeType: string }): Promise<SyllabusPlan> => {
   const ai = getAIClient();
   
-  const prompt = `FAST GENERATION MODE: Based on the syllabus, create a high-impact roadmap for ${grade} in ${language} for ${duration} ${durationType}. 
+  const prompt = `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+  FAST GENERATION MODE: Based on the syllabus, create a high-impact roadmap for ${grade} for ${duration} ${durationType}. 
   Provide exactly 5-8 key sessions that cover the most critical parts of the content.
   Keep descriptions brief and actionable. Return valid JSON.`;
 
@@ -67,11 +68,10 @@ export const generateSyllabusPlan = async (duration: number, durationType: 'Days
   return safeParseJSON<SyllabusPlan>(response.text || "{}", { title: "", timeframe: "", sessions: [], finalAssessment: "" });
 };
 
-// Fix: This is the primary implementation of getHelpAdvice using structured JSON output.
 export const getHelpAdvice = async (issue: string, grade: string, language: string) => {
   const ai = getAIClient();
-  const prompt = `Act as a master classroom management coach. Provide advice for a teacher dealing with: "${issue}" in ${grade}. 
-  Language: ${language}.
+  const prompt = `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+  Act as a master classroom management coach. Provide advice for a teacher dealing with: "${issue}" in ${grade}. 
   IMPORTANT: Do not use markdown symbols like #, *, or ---.
   Return strictly valid JSON.`;
 
@@ -105,7 +105,7 @@ export const getHelpAdvice = async (issue: string, grade: string, language: stri
 };
 
 export const generateQuestionPaper = async (
-  syllabusFile: { base64: string, mimeType: string } | null, 
+  contentFile: { base64: string, mimeType: string } | null, 
   formatFile: { base64: string, mimeType: string } | null,
   grade: GradeLevel, 
   language: Language, 
@@ -120,10 +120,11 @@ export const generateQuestionPaper = async (
   if (useContextFormat && formatFile) {
     structureInstruction = `
     STRICT STRUCTURAL TEMPLATE:
-    1. Analyze the file provided as the "FORMAT SOURCE" (Previous Year Paper/Sample).
-    2. Mirror its EXACT layout: section names, marks distribution, choices (internal or external), and question types (MCQ, short, long).
-    3. DO NOT use the content (questions) from the FORMAT SOURCE.
-    4. Generate ENTIRELY NEW questions based on the "CONTENT SOURCE" or Topic.
+    1. Analyze the file provided as the "FORMAT SOURCE".
+    2. Mirror its EXACT layout: section names, marks distribution, choices, and question types.
+    3. If the template has "Either/Or" choices, ensure you generate TWO distinct question options (A and B) for that item.
+    4. DO NOT use the content (questions) from the FORMAT SOURCE.
+    5. Generate ENTIRELY NEW questions based on the "CONTENT SOURCE" or Topic.
     `;
   } else {
     const blueprintDescription = settings.sections.map((s, idx) => {
@@ -134,12 +135,14 @@ export const generateQuestionPaper = async (
       - TITLE: Use a standard academic title (e.g. "Section A")
       - QUESTION TYPE: ${s.type.toUpperCase()}
       - MARKS PER QUESTION: ${s.marksPerQuestion}
-      - TOTAL QUESTIONS YOU MUST GENERATE: ${s.count}
-      - STUDENT MUST CHOOSE AND ANSWER: ${questionsToAnswer}
-      - CALCULATED TOTAL FOR THIS SECTION (totalSectionMarks): ${sectionExpectedScore}`;
+      - NUMBER OF MAIN QUESTIONS: ${s.count}
+      - TOTAL SCORE FOR SECTION: ${sectionExpectedScore}`;
       
       if (s.type === 'either-or') {
-        detail += ` \n- FORMAT: INTERNAL CHOICE. For each of the ${s.count} items, you MUST provide "text" (Choice A) AND "alternativeText" (Choice B).`;
+        detail += ` \n- MANDATORY REQUIREMENT: This section is "Either/Or". For each of the ${s.count} question numbers, you MUST generate TWO completely different questions. 
+        - Store the first question in the "text" field.
+        - Store the second (alternative) question in the "alternativeText" field.
+        - BOTH fields must be populated with high-quality academic content.`;
       }
 
       if (s.type === 'any-x-among-y') {
@@ -155,8 +158,8 @@ export const generateQuestionPaper = async (
 
     structureInstruction = `
     STRICT PAPER CONSTRAINTS:
-    1. TOTAL MARKS (Sum of all section answerable marks) MUST BE EXACTLY: ${settings.totalMarks}
-    2. DURATION (As text) MUST BE EXACTLY: "${settings.duration}"
+    1. TOTAL MARKS MUST BE EXACTLY: ${settings.totalMarks}
+    2. DURATION MUST BE EXACTLY: "${settings.duration}"
     3. DIFFICULTY LEVEL: ${settings.difficulty}
     
     EXAM STRUCTURE (BLUEPRINT):
@@ -164,24 +167,28 @@ export const generateQuestionPaper = async (
     `;
   }
 
-  const topicConstraint = specificTopic ? `STRICTLY FOCUS CONTENT ON: "${specificTopic}".` : `Base the content on the uploaded content context.`;
+  const sourceInstruction = (contentFile && !useContextFormat) 
+    ? `STRICT CONTENT RULE: You MUST source the question content exclusively from the provided PDF Question Bank/Source. Transform or rephrase if needed to fit the blueprint types, but stick to the source knowledge/bank questions.`
+    : (specificTopic ? `STRICTLY FOCUS CONTENT ON: "${specificTopic}".` : `Base the content on the uploaded content context.`);
 
-  const prompt = `Act as an expert Academic Examiner for Grade ${grade} in ${language}. Generate a professional Question Paper.
+  const prompt = `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+  Act as an expert Academic Examiner for Grade ${grade}. Generate a professional Question Paper.
 
   ${structureInstruction}
 
-  ${topicConstraint}
+  ${sourceInstruction}
 
-  JSON OUTPUT RULES:
-  - Return strictly valid JSON.
-  - No "coId" or "bloomLevel" fields.
-  - The sum of totalSectionMarks must match the intended paper total.`;
+  JSON SCHEMA RULES for 'either-or' types:
+  - Each object in the "questions" array MUST have both "text" AND "alternativeText" filled. 
+  - If a question has multiple choice options, provide "options" for text and "alternativeOptions" for alternativeText.
+  
+  Return strictly valid JSON. No coId or bloomLevel fields.`;
 
   const parts: any[] = [];
   
-  if (syllabusFile) {
-    parts.push({ text: "CONTENT SOURCE (Syllabus/Notes): Use this for question content." });
-    parts.push({ inlineData: { data: syllabusFile.base64, mimeType: syllabusFile.mimeType } });
+  if (contentFile) {
+    parts.push({ text: useContextFormat ? "CONTENT SOURCE (Syllabus/Notes): Use this for question content." : "QUESTION POOL SOURCE (PDF Bank): Use this to pull or adapt specific questions." });
+    parts.push({ inlineData: { data: contentFile.base64, mimeType: contentFile.mimeType } });
   }
 
   if (formatFile && useContextFormat) {
@@ -223,7 +230,8 @@ export const generateQuestionPaper = async (
                       text: { type: Type.STRING },
                       marks: { type: Type.NUMBER },
                       options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      alternativeText: { type: Type.STRING }
+                      alternativeText: { type: Type.STRING },
+                      alternativeOptions: { type: Type.ARRAY, items: { type: Type.STRING } }
                     },
                     required: ["id", "text", "marks"]
                   }
@@ -245,7 +253,8 @@ export const generateLocalContent = async (topic: string, grade: GradeLevel, lan
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Create structured educational content for Grade ${grade} in ${language} about "${topic}". Include local references relevant to students in this region.`,
+    contents: `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+    Create structured educational content for Grade ${grade} about "${topic}". Include local references relevant to students in this region.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -288,7 +297,8 @@ export const analyzeTextbookImage = async (base64: string, grade: GradeLevel, la
     contents: {
       parts: [
         { inlineData: { data: base64, mimeType: 'image/jpeg' } },
-        { text: `Analyze this textbook page and create a clean, structured worksheet for Grade ${grade} in ${language}. Ensure the questions are pedagogically sound and match the identified concepts.` }
+        { text: `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+        Analyze this textbook page and create a clean, structured worksheet for Grade ${grade}. Ensure the questions are pedagogically sound and match the identified concepts.` }
       ]
     },
     config: {
@@ -330,7 +340,8 @@ export const askQuestion = async (question: string, language: Language): Promise
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Explain "${question}" in ${language} for students using simple analogies and a structured format.`,
+    contents: `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+    Explain "${question}" for students using simple analogies and a structured format.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -394,14 +405,13 @@ export const generateVisualAid = async (topic: string, isColor: boolean): Promis
 
 export const generateHomework = async (topic: string, grade: GradeLevel, language: Language, fileContext?: { base64: string, mimeType: string } | null) => {
   const ai = getAIClient();
-  const prompt = `Act as an expert primary school educator. Create a structured 3-part homework assignment for Grade ${grade} in ${language} SPECIFICALLY AND ONLY about the topic: "${topic}".
-  
-  IMPORTANT: IGNORE all other topics in the provided context/files. Focus EXCLUSIVELY on "${topic}".
+  const prompt = `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+  Act as an expert primary school educator. Create a structured 3-part homework assignment for Grade ${grade} SPECIFICALLY AND ONLY about the topic: "${topic}".
   
   The homework must follow this EXACT structure:
-  1. Part 1: Identification/Matching (Identify items related to the topic).
-  2. Part 2: Creative Application (A drawing or writing task involving a concept like a 'Strong Shield').
-  3. Part 3: Decision Making (A 'Tech Hero' scenario with Multiple Choice answers).
+  1. Part 1: Identification/Matching.
+  2. Part 2: Creative Application.
+  3. Part 3: Decision Making.
 
   Ensure instructions are pedagogical and age-appropriate. Return strictly valid JSON.`;
 
@@ -469,7 +479,8 @@ export const generateSlideDeck = async (topic: string, fileContext: { base64: st
   const parts: any[] = [];
   if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
   
-  const prompt = `Act as an expert Educational Designer. Create a professional Slide Deck in ${language} about "${topic}". 
+  const prompt = `STRICT LANGUAGE ENFORCEMENT: All content within slides (titles, bullet points) must be in ${language}.
+  Act as an expert Educational Designer. Create a professional Slide Deck about "${topic}". 
   CONSTRAINTS:
   - Generate EXACTLY ${numSlides} slides.
   - Slide 1: Title Slide.
@@ -532,7 +543,8 @@ export const askChatQuestion = async (question: string, fileContext: { base64: s
   const parts: any[] = [];
   if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } });
   
-  const systemInstruction = `You are a professional educational assistant. Respond in ${language}. Avoid complex LaTeX symbols. Use standard bolding (**Text**) for emphasis and ### for section headers. Use simple bullet points (* Item) for lists.`;
+  const systemInstruction = `STRICT LANGUAGE ENFORCEMENT: You must respond exclusively in ${language}. 
+  You are a professional educational assistant. Avoid complex LaTeX symbols. Use standard bolding (**Text**) for emphasis and ### for section headers. Use simple bullet points (* Item) for lists.`;
 
   parts.push({ text: `Question: ${question}` });
   
@@ -586,7 +598,8 @@ export const generateLessonPlan = async (topics: string[], grade: GradeLevel, la
   const ai = getAIClient(); 
   const parts: any[] = []; 
   if (fileContext) parts.push({ inlineData: { data: fileContext.base64, mimeType: fileContext.mimeType } }); 
-  parts.push({ text: `Create a lesson plan for: ${topics.join(', ')} for Grade ${grade} in ${language}.` }); 
+  parts.push({ text: `STRICT LANGUAGE ENFORCEMENT: All output content must be in ${language}.
+  Create a lesson plan for: ${topics.join(', ')} for Grade ${grade}.` }); 
   const res = await ai.models.generateContent({ 
     model: 'gemini-3-flash-preview', 
     contents: { parts }, 

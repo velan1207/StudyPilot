@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Calendar, Plus, X, Loader2, Sparkles, Printer, ArrowRight } from 'lucide-react';
+import { Plus, X, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { generateLessonPlan } from '../services/geminiService';
 import { TeacherContext, LessonPlan } from '../types';
 
@@ -89,12 +89,6 @@ const LessonPlanner: React.FC<{ context: TeacherContext }> = ({ context }) => {
               <h3 className="text-2xl font-bold">{plan.title}</h3>
               <p className="opacity-80 text-sm">Created for {context.grade}</p>
             </div>
-            <button 
-              onClick={() => window.print()} 
-              className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg backdrop-blur-md"
-            >
-              <Printer size={20} />
-            </button>
           </div>
 
           <div className="p-8 space-y-10">
@@ -149,23 +143,5 @@ const LessonPlanner: React.FC<{ context: TeacherContext }> = ({ context }) => {
     </div>
   );
 };
-
-const CheckCircle2 = ({ size, className }: { size: number, className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-    <path d="m9 12 2 2 4-4"/>
-  </svg>
-);
 
 export default LessonPlanner;

@@ -1,42 +1,50 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StudyPilot - AI-Powered Teacher Workspace</title>
+    <title>StudyPilot | Next-Gen AI Educator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.3);
+      }
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #F8FAFC;
+        background-image: 
+          radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+          radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+          radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+        background-attachment: fixed;
+        min-height: 100vh;
       }
+
+      .glass-panel {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+      }
+
+      .neon-glow {
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+      }
+
       @media print {
-        @page {
-          margin: 1.5cm;
-          size: auto;
-        }
-        body, #root, main {
-          background-color: white !important;
-          width: 100% !important;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
+        body { background: white !important; }
+        .no-print { display: none !important; }
+        #printable-area {
           display: block !important;
-          overflow: visible !important;
-        }
-        header, aside, .no-print, nav, button {
-          display: none !important;
-        }
-        #printable-worksheet {
-          display: block !important;
-          width: 100% !important;
-          border: none !important;
-          box-shadow: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
+          visibility: visible !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
         }
       }
     </style>
@@ -55,7 +63,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-[#F8FAFB] text-slate-900">
+  <body>
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

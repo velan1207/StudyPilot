@@ -1,34 +1,31 @@
 
-import React, { useState, useEffect } from 'react';
-/* Fixed: Using default import for react-router-dom to resolve missing named exports error in the current environment */
+import React, { useState, useEffect, useRef } from 'react';
 import * as RRD from 'react-router-dom';
-
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { 
   LayoutDashboard, 
   Calendar,
-  ChevronDown,
-  GraduationCap,
   Globe,
-  LifeBuoy,
   LogOut,
-  Loader2,
-  Menu,
-  X
+  Sparkles,
+  User as UserIcon,
+  Mail,
+  ShieldQuestion,
+  HelpCircle,
+  PlaneTakeoff
 } from 'lucide-react';
 import { GradeLevel, Language, TeacherContext } from './types';
 import { UI_STRINGS } from './translations';
 
-// Pages
 import Dashboard from './pages/Dashboard';
 import GradeWorkspace from './pages/GradeWorkspace';
 import HelpMode from './pages/HelpMode';
 import Schedule from './pages/Schedule';
 import Auth from './pages/Auth';
 
-const Header = ({ 
+const FloatingDock = ({ 
   context, 
   setContext, 
   user,
@@ -40,109 +37,119 @@ const Header = ({
   userName: string 
 }) => {
   const location = RRD.useLocation();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
   const isDashboard = location.pathname === '/';
   const isHelp = location.pathname === '/help';
   const isSchedule = location.pathname === '/schedule';
   const t = UI_STRINGS[context.language];
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <>
-      {/* Top Header - Global visibility */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-6 h-16 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4 md:gap-10">
-          <RRD.Link to="/" className="flex items-center gap-2">
-            <div className="bg-[#4FB5C0] p-1.5 rounded-lg shadow-lg shadow-[#4FB5C0]/20">
-              <GraduationCap className="text-white" size={20} />
+    <div className="fixed top-0 left-0 right-0 z-[100] px-4 md:px-8 py-4 pointer-events-none bg-gradient-to-b from-[#F8FAFC] via-[#F8FAFC]/80 to-transparent">
+      <div className="max-w-7xl mx-auto flex items-center justify-between p-2 glass-panel rounded-[2rem] shadow-2xl pointer-events-auto border border-white/40 ring-1 ring-black/5">
+        <div className="flex items-center gap-2 md:gap-8 px-4">
+          <RRD.Link to="/" className="flex items-center gap-2 group">
+            <div className="p-2 bg-violet-600 rounded-2xl group-hover:scale-110 transition-transform overflow-hidden flex items-center justify-center shadow-lg shadow-violet-200">
+              <PlaneTakeoff className="text-white" size={24} />
             </div>
-            <span className="text-lg md:text-xl font-black text-[#4FB5C0] tracking-tight">StudyPilot</span>
+            <span className="hidden md:block text-xl font-black bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent tracking-tighter">StudyPilot</span>
           </RRD.Link>
           
-          {/* Desktop Nav - Hidden on Mobile */}
-          <nav className="hidden md:flex items-center gap-2">
-            <RRD.Link 
-              to="/" 
-              className={`px-4 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-2 ${isDashboard ? 'bg-[#E6F4F5] text-[#4FB5C0]' : 'text-slate-400 hover:text-slate-800'}`}
-            >
-              <LayoutDashboard size={14} /> {t.dashboard}
-            </RRD.Link>
-            <RRD.Link 
-              to="/schedule" 
-              className={`px-4 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-2 ${isSchedule ? 'bg-[#E6F4F5] text-[#4FB5C0]' : 'text-slate-400 hover:text-slate-800'}`}
-            >
-              <Calendar size={14} /> {t.schedule}
-            </RRD.Link>
-            <RRD.Link 
-              to="/help" 
-              className={`px-4 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-2 ${isHelp ? 'bg-rose-100 text-rose-600' : 'text-rose-400 hover:text-rose-600 border border-transparent hover:border-rose-100'}`}
-            >
-              <LifeBuoy size={14} /> {t.helpMode || "HELP MODE"}
-            </RRD.Link>
+          <nav className="flex items-center gap-1">
+            <NavItem to="/" active={isDashboard} icon={LayoutDashboard} label={t.dashboard} />
+            <NavItem to="/schedule" active={isSchedule} icon={Calendar} label={t.schedule} />
+            <NavItem to="/help" active={isHelp} icon={HelpCircle} label="Help Mode" />
           </nav>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4">
-          {/* Language Selector - Visible on Mobile and Desktop */}
-          <div className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 group hover:border-[#4FB5C0]/30 transition-all relative">
-            <Globe size={14} className="text-slate-400 group-hover:text-[#4FB5C0]" />
-            <span className="text-[10px] md:text-xs font-black text-slate-700">{context.language}</span>
+        <div className="flex items-center gap-2 md:gap-4 pr-2">
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-black/5 rounded-2xl relative group cursor-pointer border border-transparent hover:border-black/10 transition-all">
+            <Globe size={14} className="text-slate-500" />
+            <span className="text-xs font-black text-slate-700">{context.language}</span>
             <select 
               value={context.language}
               onChange={(e) => setContext({ ...context, language: e.target.value as Language })}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              className="absolute inset-0 opacity-0 cursor-pointer"
             >
               {Object.values(Language).map(lang => (
                 <option key={lang} value={lang}>{lang}</option>
               ))}
             </select>
-            <ChevronDown size={12} className="text-slate-400" />
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-100 group relative">
-            <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-500 rounded-xl flex items-center justify-center text-white font-black text-[10px] md:text-xs shadow-lg shadow-indigo-500/20">
-              {userName ? userName[0].toUpperCase() : 'U'}
-            </div>
-            <div className="hidden lg:block text-left">
-              <p className="text-xs font-black text-slate-800 leading-none mb-1 truncate max-w-[80px]">{userName || 'User'}</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">PREMIUM</p>
-            </div>
+          <div className="relative" ref={dropdownRef}>
             <button 
-              onClick={() => signOut(auth)}
-              className="p-1.5 md:p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
-              title="Sign Out"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white font-black text-sm shadow-xl hover:scale-105 transition-transform border-2 border-white ring-2 ring-slate-100"
             >
-              <LogOut size={16} />
+              {userName ? userName[0].toUpperCase() : 'U'}
             </button>
+
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-4 w-72 bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-6 bg-slate-50/50 border-b border-slate-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-violet-600 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-violet-200">
+                      {userName ? userName[0].toUpperCase() : 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 truncate">{userName || 'Educator'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Teacher Account</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <Mail size={14} className="shrink-0" />
+                      <span className="text-[11px] font-medium truncate">{user?.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <ShieldQuestion size={14} className="shrink-0" />
+                      <span className="text-[11px] font-medium">Standard License</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2">
+                  <button 
+                    onClick={() => signOut(auth)}
+                    className="w-full flex items-center gap-3 p-4 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors font-black uppercase text-[10px] tracking-widest"
+                  >
+                    <LogOut size={16} />
+                    Log Out Session
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </header>
-
-      {/* Bottom Navigation for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around h-16 z-50 px-2 no-print">
-        <RRD.Link 
-          to="/" 
-          className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-all ${isDashboard ? 'text-[#4FB5C0]' : 'text-slate-400'}`}
-        >
-          <LayoutDashboard size={20} />
-          <span className="text-[9px] font-black uppercase tracking-tight">{t.dashboard}</span>
-        </RRD.Link>
-        <RRD.Link 
-          to="/schedule" 
-          className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-all ${isSchedule ? 'text-[#4FB5C0]' : 'text-slate-400'}`}
-        >
-          <Calendar size={20} />
-          <span className="text-[9px] font-black uppercase tracking-tight">{t.schedule}</span>
-        </RRD.Link>
-        <RRD.Link 
-          to="/help" 
-          className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-all ${isHelp ? 'text-rose-500' : 'text-slate-400'}`}
-        >
-          <LifeBuoy size={20} />
-          <span className="text-[9px] font-black uppercase tracking-tight">{t.helpMode || "HELP"}</span>
-        </RRD.Link>
-      </nav>
-    </>
+      </div>
+    </div>
   );
 };
+
+const NavItem = ({ to, active, icon: Icon, label }: any) => (
+  <RRD.Link 
+    to={to} 
+    className={`px-4 py-2.5 rounded-2xl text-[10px] md:text-xs font-black transition-all flex items-center gap-2 ${
+      active 
+      ? `bg-slate-900 text-white shadow-xl` 
+      : `text-slate-500 hover:bg-black/5 hover:text-slate-900`
+    }`}
+  >
+    <Icon size={14} />
+    <span className="hidden lg:block uppercase tracking-widest">{label}</span>
+  </RRD.Link>
+);
 
 const App: React.FC = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -157,13 +164,9 @@ const App: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Fetch custom name from firestore
         const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUserName(userDoc.data().name);
-        } else {
-          setUserName(firebaseUser.displayName || '');
-        }
+        if (userDoc.exists()) setUserName(userDoc.data().name);
+        else setUserName(firebaseUser.displayName || '');
       }
       setAuthLoading(false);
     });
@@ -172,21 +175,23 @@ const App: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-[#4FB5C0]" size={40} />
-        <p className="font-black uppercase text-[10px] tracking-widest text-slate-400">Authenticating</p>
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6">
+        <div className="relative">
+          <div className="w-24 h-24 border-8 border-white/10 border-t-violet-500 rounded-full animate-spin"></div>
+          <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" size={32} />
+        </div>
+        <p className="font-black uppercase text-xs tracking-[0.5em] text-white/40">Awakening StudyPilot</p>
       </div>
     );
   }
 
-  if (!user) {
-    return <Auth />;
-  }
+  if (!user) return <Auth />;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFB] text-slate-900 font-sans selection:bg-[#4FB5C0]/20 selection:text-[#4FB5C0] pb-16 md:pb-0">
-      <Header context={context} setContext={setContext} user={user} userName={userName} />
-      <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-12 overflow-y-auto">
+    <div className="min-h-screen flex flex-col selection:bg-violet-500/30 selection:text-violet-900">
+      <FloatingDock context={context} setContext={setContext} user={user} userName={userName} />
+      {/* Increased padding-top to ensure content is visible below the fixed header */}
+      <main className="flex-1 pt-32 md:pt-40 p-4 md:p-12 max-w-[1600px] mx-auto w-full">
         <RRD.Routes>
           <RRD.Route path="/" element={<Dashboard context={context} setContext={setContext} />} />
           <RRD.Route path="/grade/:gradeId" element={<GradeWorkspace context={context} setContext={setContext} />} />

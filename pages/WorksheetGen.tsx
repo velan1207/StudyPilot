@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Upload, Loader2, FileText, X, ImageIcon, Printer, Sparkles } from 'lucide-react';
+import { Upload, Loader2, FileText, X, ImageIcon, Sparkles } from 'lucide-react';
 import { analyzeTextbookImage } from '../services/geminiService';
 import { TeacherContext } from '../types';
 
@@ -51,10 +51,6 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="max-w-6xl mx-auto pb-12">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -64,7 +60,7 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8 no-print">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-8">
         {/* Upload Section */}
         <div className="space-y-6">
           <div 
@@ -121,29 +117,19 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
         <button 
           onClick={handleGenerate}
           disabled={loading || !selectedImage}
-          className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 no-print"
+          className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
         >
           {loading ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
           Generate Clean Worksheet
         </button>
 
         {/* Results Section */}
-        <div id="printable-worksheet" className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[600px] print:shadow-none print:border-none print:rounded-none">
-          <div className="bg-slate-50 border-b px-6 py-4 flex justify-between items-center no-print">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[600px]">
+          <div className="bg-slate-50 border-b px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-widest">
               <ImageIcon size={16} />
               AI Worksheet Output
             </div>
-            {worksheet && (
-              <button 
-                onClick={handlePrint} 
-                className="p-2 text-slate-500 hover:text-blue-600 transition-colors bg-white rounded-lg border border-slate-200 shadow-sm flex items-center gap-2 px-3"
-                title="Print Worksheet"
-              >
-                <Printer size={18} />
-                <span className="text-xs font-bold uppercase tracking-wide">Print</span>
-              </button>
-            )}
           </div>
           
           <div className="p-8 md:p-12 flex-1">
@@ -156,7 +142,7 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
                 </div>
               </div>
             ) : worksheet ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 print:animate-none">
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex justify-between items-start mb-12 border-b-2 border-slate-100 pb-8">
                   <div className="flex-1 pr-8">
                     <h3 className="text-3xl font-black text-slate-900 mb-2">{worksheet.title}</h3>
@@ -175,7 +161,7 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
                 <div className="space-y-12">
                   {worksheet.sections.map((section, sIdx) => (
                     <div key={sIdx} className="space-y-6">
-                      <div className="bg-slate-50 -mx-12 px-12 py-3 border-y border-slate-100 mb-4 print:bg-slate-50 print:border-slate-200">
+                      <div className="bg-slate-50 -mx-12 px-12 py-3 border-y border-slate-100 mb-4">
                         <h4 className="font-black text-lg text-slate-800 uppercase tracking-wide">{section.title}</h4>
                         {section.subInstructions && <p className="text-sm text-slate-500 font-medium">{section.subInstructions}</p>}
                       </div>
@@ -217,7 +203,7 @@ const WorksheetGen: React.FC<{ context: TeacherContext }> = ({ context }) => {
                   <FileText size={48} />
                 </div>
                 <h4 className="text-xl font-bold text-slate-800 mb-2">No Content Yet</h4>
-                <p className="text-slate-400 leading-relaxed max-w-md">Your professional, clean worksheet will appear here after AI analysis. Ready to print and hand out to students.</p>
+                <p className="text-slate-400 leading-relaxed max-w-md">Your professional, clean worksheet will appear here after AI analysis. Ready to share with students.</p>
               </div>
             )}
           </div>
