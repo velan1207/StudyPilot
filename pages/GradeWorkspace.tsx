@@ -38,14 +38,17 @@ import {
   User,
   History,
   Trash,
-  AlertOctagon
+  AlertOctagon,
+  PlusCircle
 } from 'lucide-react';
 import { 
   TeacherContext, 
   QuestionSettings, 
   SlideDeck, 
   SectionBlueprint,
-  Slide
+  Slide,
+  QuestionPaper,
+  Question
 } from '../types';
 import { 
   generateQuestionPaper, 
@@ -294,7 +297,7 @@ const SaveNamingModal = ({ isOpen, onClose, onConfirm, suggestedTitle }: { isOpe
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 no-print">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-[2.5rem] w-full max-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="p-8 border-b bg-slate-50/50 flex items-center justify-between">
           <div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Save to Vault</h3></div>
           <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-600 transition-colors"><X size={28} /></button>
@@ -313,10 +316,9 @@ const SaveNamingModal = ({ isOpen, onClose, onConfirm, suggestedTitle }: { isOpe
 };
 
 const ExamChoiceModal = ({ isOpen, onClose, onSelect }: any) => {
-  const fileInputRefAuto = useRef<HTMLInputElement>(null);
   const fileInputRefBank = useRef<HTMLInputElement>(null);
   if (!isOpen) return null;
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'auto' | 'bank') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'bank') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -332,28 +334,22 @@ const ExamChoiceModal = ({ isOpen, onClose, onSelect }: any) => {
   };
   return (
     <div className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 no-print">
-      <div className="bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
         <div className="p-10 border-b bg-slate-50/50 flex items-center justify-between">
           <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Generate Exam Paper</h3></div>
           <button onClick={onClose}><X /></button>
         </div>
-        <div className="p-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <input type="file" ref={fileInputRefAuto} onChange={(e) => handleFileUpload(e, 'auto')} className="hidden" accept="image/*,application/pdf" />
-          <button onClick={() => fileInputRefAuto.current?.click()} className="flex flex-col items-center text-center p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-[#4FB5C0] group">
-            <div className="w-14 h-14 bg-[#4FB5C0]/10 text-[#4FB5C0] rounded-2xl flex items-center justify-center mb-6"><Upload size={28} /></div>
-            <h4 className="text-base font-black text-slate-800 uppercase mb-2">Smart Extraction</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Mirror EXACT layout</p>
-          </button>
+        <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
           <input type="file" ref={fileInputRefBank} onChange={(e) => handleFileUpload(e, 'bank')} className="hidden" accept="image/*,application/pdf" />
-          <button onClick={(() => fileInputRefBank.current?.click())} className="flex flex-col items-center text-center p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-amber-500 group">
-            <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-6"><Database size={28} /></div>
-            <h4 className="text-base font-black text-slate-800 uppercase mb-2">PDF Question Bank</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Source from PDF</p>
+          <button onClick={(() => fileInputRefBank.current?.click())} className="flex flex-col items-center text-center p-8 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-amber-500 group">
+            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-6"><Database size={32} /></div>
+            <h4 className="text-lg font-black text-slate-800 uppercase mb-2">PDF Question Bank</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source questions from your library</p>
           </button>
-          <button onClick={(() => onSelect('custom'))} className="flex flex-col items-center text-center p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-indigo-500 group">
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-6"><ClipboardList size={28} /></div>
-            <h4 className="text-base font-black text-slate-800 uppercase mb-2">Manual Blueprint</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Custom structure</p>
+          <button onClick={(() => onSelect('custom'))} className="flex flex-col items-center text-center p-8 bg-white border-2 border-slate-100 rounded-[2.5rem] hover:border-indigo-500 group">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-6"><ClipboardList size={32} /></div>
+            <h4 className="text-lg font-black text-slate-800 uppercase mb-2">Manual Blueprint</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Define your own specific structure</p>
           </button>
         </div>
       </div>
@@ -496,7 +492,7 @@ const PlanView = ({ plan, onSessionAction }: any) => {
       <div className="p-10 space-y-12">
         {plan?.sessions?.map((s: any, i: number) => (
           <div key={i} className="flex flex-col md:flex-row gap-8">
-            <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-xl shrink-0">{i + 1}</div>
+            <div className="px-6 py-4 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-sm uppercase shrink-0 min-w-[100px]">{s.period}</div>
             <div className="flex-1 space-y-4">
               <div className="flex justify-between items-start">
                 <div>
@@ -576,21 +572,40 @@ const HomeworkView = ({ homework }: any) => {
   );
 };
 
-const EditablePaper = ({ paper }: any) => {
+const EditablePaper = ({ paper, setPaper }: { paper: QuestionPaper, setPaper: (p: QuestionPaper) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+
+  const handleUpdateQuestion = (sIdx: number, qIdx: number, text: string) => {
+    const newPaper = { ...paper };
+    newPaper.sections[sIdx].questions[qIdx].text = text;
+    setPaper(newPaper);
+  };
+
+  const handleUpdateTitle = (text: string) => {
+    setPaper({ ...paper, title: text });
+  };
+
   return (
-    <div id="printable-area" className="bg-white p-8 md:p-16 border-slate-100 max-w-5xl mx-auto space-y-12 shadow-[0_0_50px_rgba(0,0,0,0.05)] print:shadow-none print:p-0">
-      <style>{`
-        @media print {
-          @page { margin: 2cm; }
-          body { font-family: serif !important; color: #000 !important; background: #fff !important; }
-          #printable-area { width: 100% !important; margin: 0 !important; border: none !important; }
-          .section-header { border-bottom: 2px solid #000 !important; margin-bottom: 1.5rem !important; }
-          .question-item { page-break-inside: avoid; margin-bottom: 2rem !important; }
-          .marks-label { font-family: sans-serif; font-size: 10pt; font-weight: bold; }
-        }
-      `}</style>
+    <div id="printable-area" className="bg-white p-8 md:p-16 border-slate-100 max-w-5xl mx-auto space-y-12 shadow-[0_0_50px_rgba(0,0,0,0.05)] print:shadow-none print:p-0 relative group/paper">
+      
+      <button 
+        onClick={() => setIsEditing(!isEditing)}
+        className="absolute top-8 right-8 no-print p-3 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-xl"
+      >
+        {isEditing ? <CheckCircle2 size={16} /> : <FileEdit size={16} />}
+        {isEditing ? 'Finish Editing' : 'Edit Content'}
+      </button>
+
       <div className="text-center border-b-4 border-slate-900 pb-8 print:border-black">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2 print:text-2xl">{paper.title}</h2>
+        {isEditing ? (
+          <input 
+            className="w-full text-center text-3xl font-black text-slate-900 uppercase bg-slate-50 rounded-xl p-2 outline-none border-2 border-transparent focus:border-indigo-500"
+            value={paper.title}
+            onChange={(e) => handleUpdateTitle(e.target.value)}
+          />
+        ) : (
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2 print:text-2xl">{paper.title}</h2>
+        )}
         <div className="flex justify-center gap-8 text-[12px] font-black uppercase tracking-widest text-slate-700 print:text-black">
           <span>Max Marks: {paper.totalMarks}</span>
           <span>Time: {paper.duration}</span>
@@ -600,17 +615,29 @@ const EditablePaper = ({ paper }: any) => {
         {paper.sections.map((section: any, sIdx: number) => (
           <div key={section.id} className="space-y-6 section-container">
             <div className="flex items-center justify-between border-b-2 border-slate-200 pb-2 section-header print:border-black">
-              <h4 className="font-black text-lg text-slate-900 uppercase tracking-tighter print:text-base">Part {String.fromCharCode(65 + sIdx)}: {section.title}</h4>
-              <span className="text-[10px] font-bold text-slate-400 print:text-black uppercase">({section.totalSectionMarks} Marks)</span>
+              <div className="flex-1">
+                <h4 className="font-black text-lg text-slate-900 uppercase tracking-tighter print:text-base">Part {String.fromCharCode(65 + sIdx)}: {section.title}</h4>
+                <p className="text-[11px] font-bold text-slate-500 mt-1 print:text-black italic">{section.instructions}</p>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 print:text-black uppercase shrink-0 ml-4">({section.totalSectionMarks} Marks)</span>
             </div>
-            {section.instructions && <p className="text-sm font-bold italic text-slate-600 mb-4 leading-relaxed print:text-black">{section.instructions}</p>}
             <div className="space-y-8 print:space-y-6">
               {section.questions.map((q: any, qIdx: number) => (
                 <div key={q.id} className="question-item space-y-4">
                   <div className="flex items-start gap-4">
                     <span className="font-bold text-slate-900 w-6 shrink-0 print:text-black">{qIdx + 1}.</span>
                     <div className="flex-1 space-y-4">
-                      <p className="font-bold text-slate-800 leading-relaxed text-[17px] print:text-base print:font-semibold">{q.text}</p>
+                      {isEditing ? (
+                        <textarea 
+                          className="w-full font-bold text-slate-800 leading-relaxed text-[17px] bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-xl p-3 outline-none resize-none"
+                          rows={2}
+                          value={q.text}
+                          onChange={(e) => handleUpdateQuestion(sIdx, qIdx, e.target.value)}
+                        />
+                      ) : (
+                        <p className="font-bold text-slate-800 leading-relaxed text-[17px] print:text-base print:font-semibold">{q.text}</p>
+                      )}
+                      
                       {q.options && (
                         <div className="grid grid-cols-2 gap-x-12 gap-y-2 ml-4">
                           {q.options.map((opt: string, i: number) => (
@@ -622,13 +649,19 @@ const EditablePaper = ({ paper }: any) => {
                       {q.alternativeText && (
                         <div className="mt-6 border-t border-dashed border-slate-200 pt-6 print:border-black">
                           <p className="text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-4 print:text-black">( OR )</p>
-                          <p className="font-bold text-slate-800 leading-relaxed text-[17px] print:text-base print:font-semibold">{q.alternativeText}</p>
-                          {q.alternativeOptions && (
-                            <div className="grid grid-cols-2 gap-x-12 gap-y-2 ml-4 mt-2">
-                              {q.alternativeOptions.map((opt: string, i: number) => (
-                                <div key={i} className="text-[15px] font-medium text-slate-700 print:text-sm print:text-black">({String.fromCharCode(97 + i)}) {opt}</div>
-                              ))}
-                            </div>
+                          {isEditing ? (
+                            <textarea 
+                              className="w-full font-bold text-slate-800 leading-relaxed text-[17px] bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-xl p-3 outline-none resize-none"
+                              rows={2}
+                              value={q.alternativeText}
+                              onChange={(e) => {
+                                const newPaper = { ...paper };
+                                newPaper.sections[sIdx].questions[qIdx].alternativeText = e.target.value;
+                                setPaper(newPaper);
+                              }}
+                            />
+                          ) : (
+                            <p className="font-bold text-slate-800 leading-relaxed text-[17px] print:text-base print:font-semibold">{q.alternativeText}</p>
                           )}
                         </div>
                       )}
@@ -735,9 +768,19 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
   };
 
   const handleExamChoice = (mode: 'auto' | 'custom' | 'bank', data?: any) => {
-    if (mode === 'auto') { setShowExamChoice(false); handleAction('paper', { mode: 'auto', formatFile: data }); } 
-    else if (mode === 'bank') { setShowExamChoice(false); setFormatFile(data); setShowExamConfig(true); } 
-    else { setShowExamChoice(false); setShowExamConfig(true); }
+    if (mode === 'auto') { 
+      setShowExamChoice(false); 
+      handleAction('paper', { mode: 'auto', formatFile: data }); 
+    } 
+    else if (mode === 'bank') { 
+      setShowExamChoice(false); 
+      setFormatFile(data); 
+      setShowExamConfig(true); 
+    } 
+    else { 
+      setShowExamChoice(false); 
+      setShowExamConfig(true); 
+    }
   };
 
   const openSaveDialog = () => {
@@ -775,10 +818,10 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
       });
       setLastSavedResult(result); 
       setShowNamingModal(false); 
-      alert('✅ Saved successfully to Vault! (Images stripped to save space)');
+      alert('✅ Saved successfully to Vault!');
     } catch (e) { 
       console.error("Save Error:", e); 
-      alert('❌ Error saving to Vault. The content might be too large.'); 
+      alert('❌ Error saving to Vault.'); 
     }
   };
 
@@ -800,7 +843,7 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
 
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-6">
-          <button onClick={() => result ? setResult(null) : navigate('/')} className="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-xl hover:bg-slate-50 transition-colors"><ArrowLeft size={24} /></button>
+          <button onClick={() => result ? setResult(null) : navigate('/')} className="w-14 h-14 flex items-center justify-center bg-white rounded-full shadow-xl hover:bg-slate-50 transition-colors shrink-0"><ArrowLeft size={24} /></button>
           <div><h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none">Grade {gradeId} <span className="text-violet-600">Workspace</span></h2></div>
         </div>
         <div className="flex items-center gap-4">
@@ -850,7 +893,7 @@ const GradeWorkspace: React.FC<{ context: TeacherContext, setContext: any }> = (
         <LoadingState action={activeAction} />
       ) : (
         <div className="space-y-12 pb-20">
-          {activeAction === 'paper' && <EditablePaper paper={result} />}
+          {activeAction === 'paper' && <EditablePaper paper={result} setPaper={setResult} />}
           {activeAction === 'plan' && <PlanView plan={result} onSessionAction={handleSessionAction} />}
           {activeAction === 'explain' && <SlidesView deck={result} />}
           {activeAction === 'homework' && <HomeworkView homework={result} />}
@@ -952,6 +995,11 @@ const ChatSidebar = ({ t, context, selectedFile, isExpanded, setIsExpanded }: an
     }
   };
 
+  const startNewChat = () => {
+    setActiveChat([]);
+    setShowHistory(false);
+  };
+
   const clearHistory = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -1044,6 +1092,13 @@ const ChatSidebar = ({ t, context, selectedFile, isExpanded, setIsExpanded }: an
           <span className="font-black text-white uppercase tracking-[0.2em] text-xs">{t.educatorGpt}</span>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={startNewChat}
+            title="Start New Chat"
+            className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
+          >
+            <PlusCircle size={16} />
+          </button>
           <button 
             onClick={() => setShowHistory(!showHistory)}
             title="Toggle Archive History"
